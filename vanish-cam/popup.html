@@ -63,14 +63,11 @@
       <p id="perf" class="muted"></p>
     </section>
     <section class="card">
-      <h2>Свои звуки</h2>
-      <p class="muted">Расширение не содержит звуков. Выбери свои файлы (mp3, wav, до 3 МБ) и назначь их на главном экране.</p>
-      <div class="field"><label for="mine1">Звук 1</label>
-        <div class="row"><input type="file" id="mine1" accept="audio/*"><button class="play" id="mine1Clear" aria-label="Убрать звук 1">✕</button></div>
-        <p class="muted" id="mine1Name"></p></div>
-      <div class="field"><label for="mine2">Звук 2</label>
-        <div class="row"><input type="file" id="mine2" accept="audio/*"><button class="play" id="mine2Clear" aria-label="Убрать звук 2">✕</button></div>
-        <p class="muted" id="mine2Name"></p></div>
+      <h2>Мои звуки</h2>
+      <p class="muted">Расширение не содержит звуков. Добавь свои файлы (mp3, wav, до 3 МБ каждый), потом выбери их на главном экране.</p>
+      <div id="soundList"></div>
+      <label class="secondary file">Добавить звук…<input type="file" id="addSound" accept="audio/*" multiple hidden></label>
+      <p class="muted" id="soundErr"></p>
     </section>
     <div id="advGroups"></div>
     <section class="card">

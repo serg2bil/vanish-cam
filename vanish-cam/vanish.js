@@ -104,7 +104,7 @@ const toggle = () => { S.hidden = !S.hidden; ui?.sync(); };
 // Sound effects. Vanishing starts on the sound's hit; appearing finishes fading in on its hit
 // (with "задом наперёд" the hit is at the end). Hit times are found in the audio itself.
 // Sounds are mixed into the mic you send (the call hears them) and played on your speakers.
-// Sounds are files the user picked in the popup, kept in chrome.storage.local as { name, b64 } under 'mine1'/'mine2'.
+// Sounds are files the user added in the popup: chrome.storage.local 'sounds' = [{ id, name, b64 }].
 let mix = null, pending = false;
 let sounds = {}; // slot -> Promise<{ fwd, rev, hit, revHit }>
 
@@ -133,9 +133,10 @@ function setupMix(mic) {
 
 function loadSound(slot) {
   getMix();
-  return sounds[slot] ??= chrome.storage.local.get(slot).then(r => {
-    if (!r[slot]) return null;
-    return mix.ac.decodeAudioData(Uint8Array.from(atob(r[slot].b64), c => c.charCodeAt(0)).buffer);
+  return sounds[slot] ??= chrome.storage.local.get('sounds').then(r => {
+    const item = (r.sounds ?? []).find(x => x.id === slot);
+    if (!item) return null;
+    return mix.ac.decodeAudioData(Uint8Array.from(atob(item.b64), c => c.charCodeAt(0)).buffer);
   }).then(fwd => {
     if (!fwd) return null;
     const { hit, cut } = soundHit(fwd.getChannelData(0), fwd.sampleRate);
@@ -146,10 +147,10 @@ function loadSound(slot) {
   });
 }
 
-// 'mine1' | 'mine2:rev' | 'off' -> { buffer, hit } or null
+// 'sound-id' | 'sound-id:rev' | 'off' -> { buffer, hit } or null
 async function soundFor(choice) {
   const [name, rev] = (choice ?? 'off').split(':');
-  if (!/^mine[12]$/.test(name)) return null;
+  if (name === 'off') return null;
   const s = await loadSound(name);
   if (!s) return null; // nothing loaded in this slot: silent
   return rev ? { buffer: s.rev, hit: s.revHit } : { buffer: s.fwd, hit: s.hit };
@@ -227,7 +228,7 @@ const trackers = {
 chrome.storage.local.get('settings', r => applySettings(r.settings));
 chrome.storage.onChanged.addListener(ch => {
   if (ch.settings) applySettings(ch.settings.newValue);
-  if (ch.mine1 || ch.mine2) sounds = {}; // a new file was picked
+  if (ch.sounds) sounds = {}; // the list changed
 });
 let snap1Hits = 0, snap2Hits = 0;
 function watchHands(result, now, face) {

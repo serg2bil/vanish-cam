@@ -4,8 +4,8 @@
 const DEFAULTS = {
   // main screen
   mode: 'meme',             // meme | seals | seals1 | snap2 | snap | off
-  vanishSound: 'mine1',     // mine1 | mine2 (+ ':rev' = backwards) | off; files are loaded by the user
-  appearSound: 'mine1:rev',
+  vanishSound: 'clean',     // id of a sound in the popup's list (+ ':rev' = backwards) | off
+  appearSound: 'clean:rev',
   panel: false,             // show the panel on the page
   // advanced
   fadeMs: 350, vanishOffset: 0, appearOffset: 0,
@@ -36,14 +36,6 @@ const MODES = [
   ['snap2', 'Щелчок двумя руками'],
   ['snap', 'Щелчок одной рукой'],
   ['off', 'Выкл (только кнопка)'],
-];
-
-const SOUND_CHOICES = [
-  ['mine1', 'Мой звук 1'],
-  ['mine2', 'Мой звук 2'],
-  ['mine1:rev', 'Мой звук 1 задом наперёд'],
-  ['mine2:rev', 'Мой звук 2 задом наперёд'],
-  ['off', 'Без звука'],
 ];
 
 // Advanced screen: one slider per setting.

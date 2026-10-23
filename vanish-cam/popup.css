@@ -126,3 +126,7 @@ select {
 .slider input { width: 100%; accent-color: var(--accent); margin: 2px 0; }
 
 .foot { margin: 2px 4px 0; color: var(--muted); font-size: 12px; text-align: center; }
+
+.sound { align-items: center; padding: 4px 0; }
+.sound span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file { text-align: center; cursor: pointer; }

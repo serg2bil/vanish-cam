@@ -21,7 +21,7 @@ function save(now = false) {
 }
 
 // ---------- main screen ----------
-for (const [id, list] of [['mode', MODES], ['vanishSound', SOUND_CHOICES], ['appearSound', SOUND_CHOICES], ['device', DEVICES], ['segModel', SEG_MODELS]]) {
+for (const [id, list] of [['mode', MODES], ['device', DEVICES], ['segModel', SEG_MODELS]]) {
   $(id).append(...list.map(([value, text]) => new Option(text, value)));
   $(id).addEventListener('change', () => { settings[id] = $(id).value; render(); save(true); });
 }
@@ -85,39 +85,83 @@ function showAdvanced(on) {
 $('gear').addEventListener('click', () => showAdvanced(true));
 $('back').addEventListener('click', () => showAdvanced(false));
 
-chrome.storage.local.get('settings', r => { settings = { ...DEFAULTS, ...r.settings }; render(); });
+chrome.storage.local.get('settings', async r => { settings = { ...DEFAULTS, ...r.settings }; await loadSounds(); render(); });
 
 // ---------- your own sounds (the extension ships none) ----------
 const MAX_SOUND = 3 * 1024 * 1024;
-async function showSoundNames() {
-  const r = await chrome.storage.local.get(['mine1', 'mine2']);
-  for (const slot of ['mine1', 'mine2']) $(slot + 'Name').textContent = r[slot]?.name ?? 'не выбран';
+let sounds = [];
+
+const toB64 = bytes => {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+};
+
+function renderSounds() {
+  for (const id of ['vanishSound', 'appearSound']) {
+    $(id).replaceChildren(...sounds.flatMap(s => [new Option(s.name, s.id), new Option(s.name + ' задом наперёд', s.id + ':rev')]), new Option('Без звука', 'off'));
+    if (![...$(id).options].some(o => o.value === settings[id])) settings[id] = 'off';
+    $(id).value = settings[id];
+  }
+  $('soundList').replaceChildren(...sounds.map(s => {
+    const row = Object.assign(document.createElement('div'), { className: 'row sound' });
+    const name = Object.assign(document.createElement('span'), { textContent: s.name });
+    const play = Object.assign(document.createElement('button'), { className: 'play', textContent: '▶', title: 'Послушать' });
+    const del = Object.assign(document.createElement('button'), { className: 'play', textContent: '✕', title: 'Удалить' });
+    play.onclick = () => preview(s.id);
+    del.onclick = () => setSounds(sounds.filter(x => x.id !== s.id));
+    row.append(name, play, del);
+    return row;
+  }));
 }
-for (const slot of ['mine1', 'mine2']) {
-  $(slot).addEventListener('change', async () => {
-    const f = $(slot).files[0];
-    if (!f) return;
-    if (f.size > MAX_SOUND) { $(slot + 'Name').textContent = 'файл больше 3 МБ'; return; }
-    const bytes = new Uint8Array(await f.arrayBuffer());
-    let bin = '';
-    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-    await chrome.storage.local.set({ [slot]: { name: f.name, b64: btoa(bin) } });
-    showSoundNames();
-  });
+
+async function setSounds(list) {
+  try { await chrome.storage.local.set({ sounds: list }); } catch { $('soundErr').textContent = 'Не хватило места, удали ненужные звуки'; return; }
+  sounds = list;
+  renderSounds();
+  save(true); // a removed sound may have reset a choice
 }
-$('mine1Clear').addEventListener('click', async () => { await chrome.storage.local.remove('mine1'); showSoundNames(); });
-$('mine2Clear').addEventListener('click', async () => { await chrome.storage.local.remove('mine2'); showSoundNames(); });
-showSoundNames();
+
+$('addSound').addEventListener('change', async () => {
+  $('soundErr').textContent = '';
+  const next = [...sounds];
+  for (const f of $('addSound').files) {
+    if (f.size > MAX_SOUND) { $('soundErr').textContent = `${f.name}: больше 3 МБ`; continue; }
+    next.push({ id: 's' + Date.now() + next.length, name: f.name.replace(/\.[^.]+$/, ''), b64: toB64(new Uint8Array(await f.arrayBuffer())) });
+  }
+  $('addSound').value = '';
+  setSounds(next);
+});
+
+// Sounds kept next to the extension but not in the repo: sounds/index.json = [{ id, name, file }].
+// Imported once; also migrates the earlier two fixed slots.
+async function loadSounds() {
+  const r = await chrome.storage.local.get(['sounds', 'seeded', 'mine1', 'mine2']);
+  const list = r.sounds ?? [];
+  for (const k of ['mine1', 'mine2']) if (r[k]) list.push({ id: k, name: r[k].name.replace(/\.[^.]+$/, ''), b64: r[k].b64 });
+  if (!r.seeded) {
+    try {
+      for (const it of await (await fetch('sounds/index.json')).json()) {
+        const bytes = new Uint8Array(await (await fetch('sounds/' + it.file)).arrayBuffer());
+        if (!list.some(x => x.id === it.id)) list.push({ id: it.id, name: it.name, b64: toB64(bytes) });
+      }
+    } catch {} // no local sounds folder
+    await chrome.storage.local.set({ seeded: true });
+  }
+  await chrome.storage.local.set({ sounds: list });
+  await chrome.storage.local.remove(['mine1', 'mine2']);
+  sounds = list;
+  renderSounds();
+}
 
 // ---------- sound preview (only you hear it) ----------
 let ac, previewing;
 const b64ToBytes = b64 => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
 async function preview(choice) {
   const [name, rev] = choice.split(':');
-  if (!/^mine[12]$/.test(name)) return;
-  ac ??= new AudioContext();
-  const saved = (await chrome.storage.local.get(name))[name];
+  const saved = sounds.find(s => s.id === name);
   if (!saved) return;
+  ac ??= new AudioContext();
   let buf = await ac.decodeAudioData(b64ToBytes(saved.b64).buffer);
   if (rev) { // same trim + reverse as on the page
     const { cut } = soundHit(buf.getChannelData(0), buf.sampleRate);
@@ -131,7 +175,7 @@ async function preview(choice) {
   previewing.connect(new GainNode(ac, { gain: settings.localVolume })).connect(ac.destination);
   previewing.start();
 }
-for (const b of document.querySelectorAll('.play')) b.addEventListener('click', () => preview($(b.dataset.for).value));
+for (const b of document.querySelectorAll('.play[data-for]')) b.addEventListener('click', () => preview($(b.dataset.for).value));
 
 // ---------- the camera in the current tab ----------
 let tabId = null;

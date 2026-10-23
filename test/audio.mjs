@@ -16,6 +16,7 @@ const id = await b.installExtension(path.join(root, 'vanish-cam'));
 
 const pop = await b.newPage();
 await pop.goto(`chrome-extension://${id}/popup.html`);
+await new Promise(r => setTimeout(r, 1500)); // let the popup finish importing local sounds
 await pop.evaluate(async () => { // 1.5 s loud 440 Hz wav as "my sound 1"
   const n = 24000 * 1.5, buf = new ArrayBuffer(44 + n * 2), d = new DataView(buf);
   const w = (o, s) => [...s].forEach((c, i) => d.setUint8(o + i, c.charCodeAt(0)));
@@ -24,7 +25,7 @@ await pop.evaluate(async () => { // 1.5 s loud 440 Hz wav as "my sound 1"
   w(36, 'data'); d.setUint32(40, n * 2, true);
   for (let i = 0; i < n; i++) d.setInt16(44 + i * 2, Math.sin(i * 2 * Math.PI * 440 / 24000) * 30000, true);
   let bin = ''; new Uint8Array(buf).forEach(x => bin += String.fromCharCode(x));
-  await chrome.storage.local.set({ mine1: { name: 't.wav', b64: btoa(bin) }, settings: { vanishSound: 'mine1', appearSound: 'off', mode: 'off' } });
+  await chrome.storage.local.set({ sounds: [{ id: 'mine1', name: 't', b64: btoa(bin) }], seeded: true, settings: { vanishSound: 'mine1', appearSound: 'off', mode: 'off' } });
 });
 
 const page = await b.newPage();

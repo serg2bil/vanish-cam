@@ -25,6 +25,7 @@ for (const [id, list] of [['mode', MODES], ['device', DEVICES], ['segModel', SEG
   $(id).append(...list.map(([value, text]) => new Option(text, value)));
   $(id).addEventListener('change', () => { settings[id] = $(id).value; render(); save(true); });
 }
+for (const id of ['vanishSound', 'appearSound']) $(id).addEventListener('change', () => { settings[id] = $(id).value; save(true); });
 $('panel').addEventListener('change', () => { settings.panel = $('panel').checked; save(true); });
 $('gdebug').addEventListener('change', () => { settings.gdebug = $('gdebug').checked; save(true); });
 

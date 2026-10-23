@@ -1,4 +1,4 @@
-// Compares model speed for each "Вычисления" / cutout-model setting on one clip.
+// Compares model speed for each "Compute" / cutout-model setting on one clip.
 // Usage: node test/perf.mjs <chrome.exe> [clip=6-hands-waving]
 import puppeteer from 'puppeteer-core';
 import http from 'http';
@@ -56,7 +56,7 @@ for (const [device, segModel] of CASES) {
   for (let i = 0; i < 60; i++) { // wait for the new models
     await new Promise(r => setTimeout(r, 1000));
     st = await status();
-    if (st?.status && !st.status.startsWith('загрузка')) break;
+    if (st?.status && !st.status.startsWith('loading')) break;
   }
   await new Promise(r => setTimeout(r, SETTLE)); // let timings settle
   st = await status();

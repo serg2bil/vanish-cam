@@ -41,13 +41,13 @@ A **Vanish Cam** card appears (mark 1). Make sure its switch is on (mark 2). To 
 ### 5. Use it
 
 1. Open a call (Google Meet, Zoom in the browser, etc.) and **turn your camera on**. If the call tab was already open, reload it first (F5).
-2. Click the Vanish Cam icon. The popup looks like this (its interface is in Russian):
+2. Click the Vanish Cam icon. The popup looks like this:
 
    ![Popup](docs/img/popup.png)
 
 3. Pick a gesture (default: the meme, ✌️ flicked at your chest). Do it and you vanish; do it again and you reappear.
-4. No gesture handy? Press the **Исчезнуть** (Vanish) button or `Alt+Shift+H`.
-5. If something behind you changed and artifacts remain, press **Запомнить фон** (Remember background) and step out of the frame for 5 seconds.
+4. No gesture handy? Press the **Vanish** button or `Alt+Shift+H`.
+5. If something behind you changed and artifacts remain, press **Remember background** and step out of the frame for 5 seconds.
 
 ### Troubleshooting
 
@@ -65,7 +65,7 @@ Download the new zip, replace the files in the `vanish-cam` folder, press ↻ on
 
 ## Sounds
 
-The extension ships no sounds. In the popup open the gear, "Свои звуки", pick up to two audio files,
+The extension ships no sounds. In the popup open the gear, "My sounds", add audio files (mp3 or wav, up to 3 MB each),
 then choose them (or their reversed versions) for vanishing and appearing on the main screen.
 
 ## Tests

@@ -7,74 +7,74 @@
 </head>
 <body>
   <header class="top">
-    <button id="back" class="icon" hidden aria-label="Назад">
+    <button id="back" class="icon" hidden aria-label="Back">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
     </button>
     <img class="logo" src="icons/48.png" alt="">
     <h1 id="title">Vanish Cam</h1>
-    <button id="gear" class="icon" aria-label="Продвинутые настройки" title="Продвинутые настройки">
+    <button id="gear" class="icon" aria-label="Advanced settings" title="Advanced settings">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
     </button>
   </header>
 
   <main id="main">
     <section class="card state">
-      <div class="where"><span id="dot" class="dot"></span><span id="where">Проверяю вкладку…</span></div>
-      <button id="toggle" class="primary" disabled>Исчезнуть</button>
-      <button id="capture" class="secondary" disabled>Запомнить фон</button>
+      <div class="where"><span id="dot" class="dot"></span><span id="where">Checking the tab…</span></div>
+      <button id="toggle" class="primary" disabled>Vanish</button>
+      <button id="capture" class="secondary" disabled>Remember background</button>
       <p id="info" class="muted" role="status"></p>
     </section>
 
     <section class="card">
       <div class="field">
-        <label for="mode">Жест</label>
+        <label for="mode">Gesture</label>
         <select id="mode"></select>
         <p id="modeHint" class="muted"></p>
       </div>
       <div class="field">
-        <label for="vanishSound">Звук исчезновения</label>
-        <div class="row"><select id="vanishSound"></select><button class="play" data-for="vanishSound" aria-label="Послушать звук исчезновения">▶</button></div>
+        <label for="vanishSound">Vanish sound</label>
+        <div class="row"><select id="vanishSound"></select><button class="play" data-for="vanishSound" aria-label="Play the vanish sound">▶</button></div>
       </div>
       <div class="field">
-        <label for="appearSound">Звук появления</label>
-        <div class="row"><select id="appearSound"></select><button class="play" data-for="appearSound" aria-label="Послушать звук появления">▶</button></div>
+        <label for="appearSound">Appear sound</label>
+        <div class="row"><select id="appearSound"></select><button class="play" data-for="appearSound" aria-label="Play the appear sound">▶</button></div>
       </div>
     </section>
 
     <section class="card">
-      <label class="switch"><input type="checkbox" id="panel"><span>Панель на странице звонка</span></label>
+      <label class="switch"><input type="checkbox" id="panel"><span>Panel on the call page</span></label>
     </section>
 
-    <p class="foot">Alt+Shift+H — исчезнуть или появиться с клавиатуры</p>
+    <p class="foot">Alt+Shift+H: vanish or appear from the keyboard</p>
   </main>
 
   <main id="adv" hidden>
     <section class="card">
       <div class="field">
-        <label for="device">Вычисления</label>
+        <label for="device">Compute</label>
         <select id="device"></select>
-        <p class="muted">Если видеокарта не подойдёт, расширение само перейдёт на процессор.</p>
+        <p class="muted">If the GPU doesn't work, the extension falls back to the CPU.</p>
       </div>
       <div class="field">
-        <label for="segModel">Модель вырезания</label>
+        <label for="segModel">Cutout model</label>
         <select id="segModel"></select>
-        <p class="muted">На процессоре качественная модель очень медленная — для него выбирай быструю.</p>
+        <p class="muted">On the CPU the quality model is very slow; pick the fast one.</p>
       </div>
       <p id="perf" class="muted"></p>
     </section>
     <section class="card">
-      <h2>Мои звуки</h2>
-      <p class="muted">Расширение не содержит звуков. Добавь свои файлы (mp3, wav, до 3 МБ каждый), потом выбери их на главном экране.</p>
+      <h2>My sounds</h2>
+      <p class="muted">The extension ships no sounds. Add your own files (mp3, wav, up to 3 MB each), then pick them on the main screen.</p>
       <div id="soundList"></div>
-      <label class="secondary file">Добавить звук…<input type="file" id="addSound" accept="audio/*" multiple hidden></label>
+      <label class="secondary file">Add a sound…<input type="file" id="addSound" accept="audio/*" multiple hidden></label>
       <p class="muted" id="soundErr"></p>
     </section>
     <div id="advGroups"></div>
     <section class="card">
-      <label class="switch"><input type="checkbox" id="gdebug"><span>Отладка жестов на странице</span></label>
-      <p class="muted">Показывает руки так, как их видит модель, и почему жест сработал или нет. Видишь только ты.</p>
+      <label class="switch"><input type="checkbox" id="gdebug"><span>Gesture debug on the page</span></label>
+      <p class="muted">Shows the hands as the model sees them and why a gesture fired or not. Only you see it.</p>
     </section>
-    <button id="reset" class="secondary wide">Сбросить всё по умолчанию</button>
+    <button id="reset" class="secondary wide">Reset everything to defaults</button>
   </main>
 
   <script src="settings.js"></script>

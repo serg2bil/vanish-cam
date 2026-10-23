@@ -47,13 +47,13 @@ await new Promise(r => setTimeout(r, 1000));
 await pop.screenshot({ path: out('popup-main.png'), fullPage: true });
 const before = await pop.$eval('#where', e => e.textContent);
 console.log('status:', before, '|', await pop.$eval('#info', e => e.textContent));
-assert.equal(before, 'Камера работает');
+assert.equal(before, 'Camera is running');
 
 await pop.click('#toggle');
 await new Promise(r => setTimeout(r, 2500)); // sound hit + fade
 const after = await pop.$eval('#where', e => e.textContent);
 console.log('after toggle:', after);
-assert.equal(after, 'Ты исчез из видео');
+assert.equal(after, 'You are hidden from the video');
 
 // Settings change reaches the page live: switch the gesture mode and read it back from storage.
 await pop.select('#mode', 'snap');

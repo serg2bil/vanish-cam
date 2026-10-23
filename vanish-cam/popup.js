@@ -5,12 +5,12 @@ const $ = id => document.getElementById(id);
 let settings = { ...DEFAULTS };
 
 const MODE_HINTS = {
-  meme: 'Резко поднеси ✌️ к груди — исчезнешь. Ещё раз — появишься.',
-  seals: 'Обеими руками по очереди: ✌️✌️, потом ✊✊, потом ✋✋.',
-  seals1: 'Одной рукой по очереди: ✌️, потом ✊, потом ✋.',
-  snap2: 'Щёлкни пальцами обеих рук, руки подняты.',
-  snap: 'Щёлкни пальцами, рука поднята над столом.',
-  off: 'Только кнопкой здесь или Alt+Shift+H.',
+  meme: 'Flick ✌️ at your chest to vanish. Do it again to reappear.',
+  seals: 'Both hands in turn: ✌️✌️, then ✊✊, then ✋✋.',
+  seals1: 'One hand in turn: ✌️, then ✊, then ✋.',
+  snap2: 'Snap the fingers of both hands, hands raised.',
+  snap: 'Snap your fingers, hand raised above the desk.',
+  off: 'Only with the button here or Alt+Shift+H.',
 };
 
 let saveTimer;
@@ -29,10 +29,10 @@ $('panel').addEventListener('change', () => { settings.panel = $('panel').checke
 $('gdebug').addEventListener('change', () => { settings.gdebug = $('gdebug').checked; save(true); });
 
 // ---------- advanced screen ----------
-const fmt = (v, unit) => unit === 'мс' ? `${Math.round(v)} мс`
+const fmt = (v, unit) => unit === 'ms' ? `${Math.round(v)} ms`
   : unit === '%' ? `${Math.round(v)}%`
   : unit === '×' ? `${(+v).toFixed(2)}×`
-  : unit === '×лицо' ? `${(+v).toFixed(2)} лица`
+  : unit === '×face' ? `${(+v).toFixed(2)} face`
   : (+v).toFixed(2);
 
 for (const group of ADVANCED) {
@@ -80,7 +80,7 @@ function showAdvanced(on) {
   $('adv').hidden = !on;
   $('gear').hidden = on;
   $('back').hidden = !on;
-  $('title').textContent = on ? 'Настройки' : 'Vanish Cam';
+  $('title').textContent = on ? 'Settings' : 'Vanish Cam';
 }
 $('gear').addEventListener('click', () => showAdvanced(true));
 $('back').addEventListener('click', () => showAdvanced(false));
@@ -99,15 +99,15 @@ const toB64 = bytes => {
 
 function renderSounds() {
   for (const id of ['vanishSound', 'appearSound']) {
-    $(id).replaceChildren(...sounds.flatMap(s => [new Option(s.name, s.id), new Option(s.name + ' задом наперёд', s.id + ':rev')]), new Option('Без звука', 'off'));
+    $(id).replaceChildren(...sounds.flatMap(s => [new Option(s.name, s.id), new Option(s.name + ' (reversed)', s.id + ':rev')]), new Option('No sound', 'off'));
     if (![...$(id).options].some(o => o.value === settings[id])) settings[id] = 'off';
     $(id).value = settings[id];
   }
   $('soundList').replaceChildren(...sounds.map(s => {
     const row = Object.assign(document.createElement('div'), { className: 'row sound' });
     const name = Object.assign(document.createElement('span'), { textContent: s.name });
-    const play = Object.assign(document.createElement('button'), { className: 'play', textContent: '▶', title: 'Послушать' });
-    const del = Object.assign(document.createElement('button'), { className: 'play', textContent: '✕', title: 'Удалить' });
+    const play = Object.assign(document.createElement('button'), { className: 'play', textContent: '▶', title: 'Play' });
+    const del = Object.assign(document.createElement('button'), { className: 'play', textContent: '✕', title: 'Delete' });
     play.onclick = () => preview(s.id);
     del.onclick = () => setSounds(sounds.filter(x => x.id !== s.id));
     row.append(name, play, del);
@@ -116,7 +116,7 @@ function renderSounds() {
 }
 
 async function setSounds(list) {
-  try { await chrome.storage.local.set({ sounds: list }); } catch { $('soundErr').textContent = 'Не хватило места, удали ненужные звуки'; return; }
+  try { await chrome.storage.local.set({ sounds: list }); } catch { $('soundErr').textContent = 'Out of space, delete some sounds'; return; }
   sounds = list;
   renderSounds();
   save(true); // a removed sound may have reset a choice
@@ -126,7 +126,7 @@ $('addSound').addEventListener('change', async () => {
   $('soundErr').textContent = '';
   const next = [...sounds];
   for (const f of $('addSound').files) {
-    if (f.size > MAX_SOUND) { $('soundErr').textContent = `${f.name}: больше 3 МБ`; continue; }
+    if (f.size > MAX_SOUND) { $('soundErr').textContent = `${f.name}: over 3 MB`; continue; }
     next.push({ id: 's' + Date.now() + next.length, name: f.name.replace(/\.[^.]+$/, ''), b64: toB64(new Uint8Array(await f.arrayBuffer())) });
   }
   $('addSound').value = '';
@@ -191,20 +191,20 @@ function showState(r) {
   $('toggle').disabled = $('capture').disabled = !live;
   $('dot').className = 'dot' + (live ? (r.hidden ? ' hidden' : ' live') : '');
   if (!live) {
-    $('where').textContent = 'Камера на этой вкладке не включена';
-    $('info').textContent = 'Открой звонок (Meet, Zoom в браузере и т.п.) и включи камеру. Если вкладка уже открыта — перезагрузи её.';
-    $('toggle').textContent = 'Исчезнуть';
+    $('where').textContent = 'The camera is not on in this tab';
+    $('info').textContent = 'Open a call (Meet, Zoom in the browser, etc.) and turn the camera on. If the tab was already open, reload it.';
+    $('toggle').textContent = 'Vanish';
     $('toggle').classList.remove('on');
     return;
   }
-  $('where').textContent = r.hidden ? 'Ты исчез из видео' : 'Камера работает';
-  $('toggle').textContent = r.pending ? '…' : r.hidden ? 'Появиться' : 'Исчезнуть';
+  $('where').textContent = r.hidden ? 'You are hidden from the video' : 'Camera is running';
+  $('toggle').textContent = r.pending ? '…' : r.hidden ? 'Appear' : 'Vanish';
   $('toggle').classList.toggle('on', r.hidden);
-  $('capture').textContent = r.captureIn > 0 ? `Уйди из кадра… ${Math.ceil(r.captureIn / 1000)}` : 'Запомнить фон';
-  $('info').textContent = [r.status, r.fps ? `${r.fps} к/с` : '', r.info].filter(Boolean).join(' · ');
+  $('capture').textContent = r.captureIn > 0 ? `Step out of frame… ${Math.ceil(r.captureIn / 1000)}` : 'Remember background';
+  $('info').textContent = [r.status, r.fps ? `${r.fps} fps` : '', r.info].filter(Boolean).join(' · ');
   // Model speed, to compare GPU vs CPU (ms per run, averaged over the last second).
-  const p = r.perf, ms = v => (v == null ? '—' : `${Math.round(v)} мс`);
-  const speed = p ? `Вырезание ${ms(p.seg)} · Руки ${ms(p.hands)} · Лицо ${ms(p.face)} · ${p.jobs ?? '—'} раз/с · видео ${r.fps} к/с` : '';
+  const p = r.perf, ms = v => (v == null ? '—' : `${Math.round(v)} ms`);
+  const speed = p ? `Cutout ${ms(p.seg)} · Hands ${ms(p.hands)} · Face ${ms(p.face)} · ${p.jobs ?? '—'}/s · video ${r.fps} fps` : '';
   $('perf').textContent = speed ? `${r.status}\n${speed}` : '';
 }
 

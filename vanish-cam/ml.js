@@ -46,9 +46,9 @@ self.makeMlEngine = function makeMlEngine(post) {
         const task = await Task.createFromOptions(fileset, { ...opts, baseOptions: { ...opts.baseOptions, delegate } });
         task.delegate = delegate;
         return task;
-      } catch (e) { log(`${Task.name} на ${delegate} не запустился`, e); }
+      } catch (e) { log(`${Task.name} failed on ${delegate}`, e); }
     }
-    throw Error('модели не запустились');
+    throw Error('models failed to start');
   }
 
   // onnxruntime runs one inference at a time per thread, across all sessions; while a new RVM is
@@ -98,9 +98,9 @@ self.makeMlEngine = function makeMlEngine(post) {
         probe.release();
         const segment = await build(used); // fresh state after the test run
         return { segment, status: `RVM · ${used === 'webgpu' ? 'GPU' : 'CPU'}`, release: segment.release };
-      } catch (e) { log(`RVM на ${used} не запустился:`, e.message); }
+      } catch (e) { log(`RVM failed on ${used}:`, e.message); }
     }
-    throw Error('onnxruntime не стартовал');
+    throw Error('onnxruntime failed to start');
   }
 
   async function load(cpu, segModel) {
@@ -118,21 +118,21 @@ self.makeMlEngine = function makeMlEngine(post) {
     }, cpu);
     let cut;
     try {
-      if (segModel === 'simple') throw Error('выбрана простая модель');
+      if (segModel === 'simple') throw Error('simple model selected');
       cut = await loadRVM(cpu);
     } catch (err) { // ponytail: fallback keeps working but with the rough little model
-      log('RVM не используется:', err.message);
+      log('RVM not used:', err.message);
       const seg = await create(ImageSegmenter, fileset, {
         baseOptions: { modelAssetPath: url('models/selfie_segmenter_landscape.tflite') },
         runningMode: 'VIDEO', outputConfidenceMasks: true, outputCategoryMask: false,
       }, cpu);
       cut = {
         segment: async out => seg.segmentForVideo(small, performance.now(), r => out.set(r.confidenceMasks[0].getAsFloat32Array())),
-        status: 'простая · ' + seg.delegate, release: () => seg.close(),
+        status: 'simple · ' + seg.delegate, release: () => seg.close(),
       };
     }
-    const status = `${cut.status} · руки ${hands.delegate} · лицо ${faces.delegate}`;
-    log('модели готовы:', status);
+    const status = `${cut.status} · hands ${hands.delegate} · face ${faces.delegate}`;
+    log('models ready:', status);
     return { ...cut, hands, faces, status, close() { hands.close(); faces.close(); cut.release(); } };
   }
 
@@ -197,7 +197,7 @@ self.makeMlEngine = function makeMlEngine(post) {
       MF ??= self.ModuleFactory;
       const k = `${msg.device}|${msg.segModel}`;
       key = k;
-      post({ type: 'status', status: 'загрузка моделей…' });
+      post({ type: 'status', status: 'loading models…' });
       const m = await load(msg.device === 'cpu', msg.segModel);
       if (key !== k) return m.close(); // settings changed again meanwhile
       const old = models;

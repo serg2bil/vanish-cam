@@ -14,24 +14,24 @@ const warn = console.warn;
 console.warn = (...a) => { if (!/gl_context|OpenGL error checking/.test(String(a[0]))) warn(...a); };
 
 // Runtime state of this page (settings are in CFG).
-const S = { hidden: false, gestureInfo: '', captureAt: 0, status: 'загрузка моделей…', fps: 0, snapInfo: '', cams: 0 };
+const S = { hidden: false, gestureInfo: '', captureAt: 0, status: 'loading models…', fps: 0, snapInfo: '', cams: 0 };
 let preSnapAt = -1e9, preSnap2At = -1e9, ui, lastMode = null;
 
 // ---------- models: ml.js, in a worker so the video never waits for them ----------
-// Changing CFG.device ("Вычисления") or CFG.segModel reloads them there; the old set keeps
+// Changing CFG.device ("Compute") or CFG.segModel reloads them there; the old set keeps
 // serving until the new one is ready. If a page forbids workers, the same engine runs inline.
 let engine = null, mlReady = false, mlKey = null, jobBusy = false, jobAt = 0;
 const camHandlers = new Map(); // camera id -> applies a finished job to that camera's pipeline
 
 function mlMessage(m) {
   if (m.type === 'status') {
-    S.status = m.status + (engine?.inline ? ' · в основном потоке' : '');
+    S.status = m.status + (engine?.inline ? ' · main thread' : '');
     if (m.ready) { mlReady = true; Object.assign(PERF, { n: 0, seg: 0, hands: 0, face: 0, since: performance.now() }); }
   } else if (m.type === 'error') {
-    S.status = 'ошибка загрузки: ' + m.message;
+    S.status = 'load error: ' + m.message;
   } else if (m.type === 'result') {
     jobBusy = false;
-    if (m.error) console.error('[Vanish Cam] модели:', m.error);
+    if (m.error) console.error('[Vanish Cam] models:', m.error);
     else if (!m.skipped) camHandlers.get(m.cam)?.(m);
   }
   ui?.sync();
@@ -39,7 +39,7 @@ function mlMessage(m) {
 
 function startEngine() {
   const runInline = why => {
-    log('модели считаю в основном потоке:', why);
+    log('running models on the main thread:', why);
     const handle = makeMlEngine(m => mlMessage(m));
     engine = { inline: true, post: m => handle(m) };
     mlKey = null; mlReady = false; jobBusy = false;
@@ -54,7 +54,7 @@ function startEngine() {
     let alive = false;
     w.onmessage = e => { alive = true; mlMessage(e.data); };
     w.onerror = e => {
-      if (alive) return console.error('[Vanish Cam] поток моделей:', e.message);
+      if (alive) return console.error('[Vanish Cam] model worker:', e.message);
       e.preventDefault();
       runInline(e.message); // the page didn't let the worker start
     };
@@ -102,7 +102,7 @@ const saveSetting = (key, value) => chrome.storage.local.get('settings', r => ch
 const toggle = () => { S.hidden = !S.hidden; ui?.sync(); };
 
 // Sound effects. Vanishing starts on the sound's hit; appearing finishes fading in on its hit
-// (with "задом наперёд" the hit is at the end). Hit times are found in the audio itself.
+// (with "reversed" the hit is at the end). Hit times are found in the audio itself.
 // Sounds are mixed into the mic you send (the call hears them) and played on your speakers.
 // Sounds are files the user added in the popup: chrome.storage.local 'sounds' = [{ id, name, b64 }].
 let mix = null, pending = false;
@@ -178,7 +178,7 @@ async function trigger() {
       await new Promise(r => setTimeout(r, Math.max(0, at)));
     }
   } catch (e) {
-    console.error('[Vanish Cam] звук', e);
+    console.error('[Vanish Cam] sound', e);
   }
   pending = false;
   toggle();
@@ -210,7 +210,7 @@ function handStats(result, now) {
   if (now - HS.since < 1000) return;
   HS.rate = Math.round(HS.checks * 1000 / (now - HS.since || 1));
   HS.pct = Math.round(100 * HS.found / (HS.checks || 1));
-  if (CFG.gdebug) log(`руки: ${HS.rate}/с, найдена в ${HS.pct}%  ${HS.trail}`);
+  if (CFG.gdebug) log(`hands: ${HS.rate}/s, found in ${HS.pct}%  ${HS.trail}`);
   Object.assign(HS, { checks: 0, found: 0, trail: '', since: now });
 }
 
@@ -241,7 +241,7 @@ function watchHands(result, now, face) {
   const seals = trackers[CFG.mode];
   if (seals) {
     const done = seals.update(lms, now);
-    S.gestureInfo = seals.step ? 'печати: ' + seals.labels.map((l, i) => i < seals.step ? '✔' : l).join(' ') : '';
+    S.gestureInfo = seals.step ? 'seals: ' + seals.labels.map((l, i) => i < seals.step ? '✔' : l).join(' ') : '';
     if (done) trigger();
     return;
   }
@@ -292,8 +292,8 @@ function listenForSnap(mic) {
     if ((CFG.mode === 'snap' || CFG.mode === 'snap2') && peak > snapLoudness() && peak > noise * 6 && now - lastSnap > 800) {
       const two = CFG.mode === 'snap2';
       const handOk = now - (two ? preSnap2At : preSnapAt) < CFG.snapWindow;
-      S.snapInfo = `звук ${peak.toFixed(2)}, ${handOk ? (two ? 'обе руки ✓' : 'рука ✓') : (two ? 'нужны обе руки' : 'руки не видно')}`;
-      log('щелчок?', S.snapInfo);
+      S.snapInfo = `sound ${peak.toFixed(2)}, ${handOk ? (two ? 'both hands ✓' : 'hand ✓') : (two ? 'need both hands' : 'no hand seen')}`;
+      log('snap?', S.snapInfo);
       setTimeout(() => S.snapInfo = '', 2500);
       if (handOk) { lastSnap = now; trigger(); }
     }
@@ -441,7 +441,7 @@ document.addEventListener('vanish-start', e => {
       ctl.enqueue(new VideoFrame(out, { timestamp: frame.timestamp }));
       frame.close();
     },
-  })).pipeTo(gen.writable).catch(e => console.error('[Vanish Cam] конвейер остановился', e)).finally(() => { S.cams--; camHandlers.delete(camId); });
+  })).pipeTo(gen.writable).catch(e => console.error('[Vanish Cam] pipeline stopped', e)).finally(() => { S.cams--; camHandlers.delete(camId); });
 });
 
 // ---------- on-page control panel ----------
@@ -474,14 +474,14 @@ function makePanel() {
   host.style.cssText = 'position:fixed;z-index:2147483647;right:16px;bottom:16px';
   const root = host.attachShadow({ mode: 'closed' });
   const mainBtn = el('button', { className: 'main', onclick: trigger });
-  const bgBtn = el('button', { title: 'Нажми и уйди из кадра', onclick: () => { S.captureAt = performance.now() + CFG.captureDelay; } });
+  const bgBtn = el('button', { title: 'Press, then step out of the frame', onclick: () => { S.captureAt = performance.now() + CFG.captureDelay; } });
   const status = el('small', { role: 'status' });
   const sketch = el('canvas', { width: 400, height: 225 });
   const notes = el('pre');
   const dbg = el('div', { className: 'dbg', hidden: true }, sketch, notes);
   const body = el('div', { className: 'body' }, mainBtn, bgBtn, dbg, status);
-  const min = el('button', { className: 'min', textContent: '–', title: 'Свернуть', onclick: () => { body.hidden = !body.hidden; } });
-  const close = el('button', { className: 'min', textContent: '×', title: 'Скрыть панель (вернуть — в окне расширения)',
+  const min = el('button', { className: 'min', textContent: '–', title: 'Minimize', onclick: () => { body.hidden = !body.hidden; } });
+  const close = el('button', { className: 'min', textContent: '×', title: 'Hide the panel (bring it back from the extension popup)',
     onclick: () => { saveSetting('panel', false); saveSetting('gdebug', false); } });
   const head = el('header', {}, '👻 Vanish Cam', el('span', {}, min, close));
 
@@ -495,16 +495,16 @@ function makePanel() {
 
   root.append(el('style', { textContent: CSS }), el('div', { className: 'p' }, head, body));
   document.documentElement.append(host);
-  const POSE = { open: '✋ ладонь', victory: '✌️ победа', fist: '✊ кулак' };
+  const POSE = { open: '✋ palm', victory: '✌️ victory', fist: '✊ fist' };
   ui = {
     // Gesture debug: hands as the model sees them (mirrored like your self-view) + what each one counts as.
     showHands(result) {
       const x = sketch.getContext('2d'), W = sketch.width, H = sketch.height;
       x.clearRect(0, 0, W, H);
       x.lineWidth = 3; x.lineCap = x.lineJoin = 'round'; x.font = 'bold 16px system-ui';
-      const lines = [`рук в кадре: ${result.landmarks.length} · модель рук ${HS.rate} раз/с, находит в ${HS.pct}%`];
+      const lines = [`hands in frame: ${result.landmarks.length} · hand model ${HS.rate}/s, finds in ${HS.pct}%`];
       const seals = trackers[CFG.mode];
-      if (seals) lines.push(`ждём: ${seals.labels[seals.step]} (печать ${seals.step + 1}/${seals.labels.length})`);
+      if (seals) lines.push(`waiting for: ${seals.labels[seals.step]} (seal ${seals.step + 1}/${seals.labels.length})`);
       const f = result.face;
       if (f) { // face box + the "below the chin" line the meme gesture uses
         x.strokeStyle = '#888';
@@ -515,7 +515,7 @@ function makePanel() {
       }
       if (CFG.mode === 'meme') {
         const a = memeHold.state.arrival;
-        lines.push(`лицо ${f ? '✓' : '✗'} · рука прилетела: ${a === null ? '—' : a === Infinity ? 'появилась в кадре ✓' : `${a.toFixed(2)} ${a >= CFG.memeArrive ? '✓' : `✗ (нужно ≥ ${CFG.memeArrive}, резче)`}`}`);
+        lines.push(`face ${f ? '✓' : '✗'} · hand flew in: ${a === null ? '—' : a === Infinity ? 'appeared in frame ✓' : `${a.toFixed(2)} ${a >= CFG.memeArrive ? '✓' : `✗ (need ≥ ${CFG.memeArrive}, faster)`}`}`);
       }
       result.landmarks.forEach((lm, k) => {
         const pose = handPose(lm), snap = isSnapPose(lm, result.worldLandmarks[k]), memeOk = isMemePose(lm, result.face);
@@ -528,23 +528,23 @@ function makePanel() {
         x.stroke();
         x.fillStyle = '#fff';
         x.fillText(String(k + 1), ...pt(0));
-        // У=указательный С=средний Б=безымянный М=мизинец; точка = палец согнут
-        const fingers = fingersOut(lm).map((o, i) => o ? 'УСБМ'[i] : '·').join('');
+        // I=index M=middle R=ring P=pinky; dot = finger folded
+        const fingers = fingersOut(lm).map((o, i) => o ? 'IMRP'[i] : '·').join('');
         const { touch, lift } = snapMeasures(lm, result.worldLandmarks[k]);
-        lines.push(`рука ${k + 1}: ${snap ? '👌 поза щелчка' : POSE[pose] ?? '— не фигура'}  пальцы ${fingers}${pose === 'victory' ? (memeOk ? '  у груди ✓' : `  у груди ✗ (${result.face ? 'опусти ниже подбородка' : 'лица не видно: опусти ниже ' + MEME_CHEST_Y}, сейчас ${lm[9].y.toFixed(2)})`) : ''}`,
-          `   щелчок ${snap ? '✓' : '✗'}  касание ${touch.toFixed(2)} (< ${CFG.snapTouch}), средний поднят ${lift.toFixed(2)} (> ${CFG.snapLift})${lm[0].y >= 0.85 ? ', рука низко' : ''}`);
+        lines.push(`hand ${k + 1}: ${snap ? '👌 snap pose' : POSE[pose] ?? '— no shape'}  fingers ${fingers}${pose === 'victory' ? (memeOk ? '  at chest ✓' : `  at chest ✗ (${result.face ? 'lower than the chin' : 'no face seen: lower than ' + MEME_CHEST_Y}, now ${lm[9].y.toFixed(2)})`) : ''}`,
+          `   snap ${snap ? '✓' : '✗'}  touch ${touch.toFixed(2)} (< ${CFG.snapTouch}), middle raised ${lift.toFixed(2)} (> ${CFG.snapLift})${lm[0].y >= 0.85 ? ', hand low' : ''}`);
       });
       notes.textContent = lines.join('\n');
     },
     sync() {
       host.hidden = !(CFG.panel || CFG.gdebug);
       dbg.hidden = !CFG.gdebug;
-      mainBtn.textContent = pending ? '…' : S.hidden ? 'Появиться' : 'Исчезнуть';
+      mainBtn.textContent = pending ? '…' : S.hidden ? 'Appear' : 'Vanish';
       mainBtn.classList.toggle('on', S.hidden);
       const left = Math.ceil((S.captureAt - performance.now()) / 1000);
-      bgBtn.textContent = S.captureAt ? `Уйди из кадра… ${Math.max(left, 0)}` : 'Запомнить фон';
+      bgBtn.textContent = S.captureAt ? `Step out of frame… ${Math.max(left, 0)}` : 'Remember background';
       const pf = PERF.out;
-      status.textContent = `${S.status} · ${S.fps} к/с · вырез ${pf.seg} мс, руки ${pf.hands}, лицо ${pf.face}, ${pf.jobs} раз/с${S.snapInfo ? ' · ' + S.snapInfo : ''}${S.gestureInfo ? ' · ' + S.gestureInfo : ''}`;
+      status.textContent = `${S.status} · ${S.fps} fps · cutout ${pf.seg} ms, hands ${pf.hands}, face ${pf.face}, ${pf.jobs}/s${S.snapInfo ? ' · ' + S.snapInfo : ''}${S.gestureInfo ? ' · ' + S.gestureInfo : ''}`;
     },
   };
   setInterval(() => ui.sync(), 300);

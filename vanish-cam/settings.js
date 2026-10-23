@@ -20,53 +20,53 @@ const DEFAULTS = {
 };
 
 const DEVICES = [
-  ['auto', 'Видеокарта'],
-  ['cpu', 'Процессор'],
+  ['auto', 'GPU'],
+  ['cpu', 'CPU'],
 ];
 
 const SEG_MODELS = [
-  ['rvm', 'Качественная (RVM)'],
-  ['simple', 'Быстрая простая'],
+  ['rvm', 'Quality (RVM)'],
+  ['simple', 'Fast, simple'],
 ];
 
 const MODES = [
-  ['meme', 'Мем: ✌️ у груди'],
-  ['seals', 'Печати двумя руками ✌️ → ✊ → ✋'],
-  ['seals1', 'Печати одной рукой ✌️ → ✊ → ✋'],
-  ['snap2', 'Щелчок двумя руками'],
-  ['snap', 'Щелчок одной рукой'],
-  ['off', 'Выкл (только кнопка)'],
+  ['meme', 'Meme: ✌️ at the chest'],
+  ['seals', 'Seals with two hands ✌️ → ✊ → ✋'],
+  ['seals1', 'Seals with one hand ✌️ → ✊ → ✋'],
+  ['snap2', 'Snap with two hands'],
+  ['snap', 'Snap with one hand'],
+  ['off', 'Off (button only)'],
 ];
 
 // Advanced screen: one slider per setting.
 const ADVANCED = [
-  { title: 'Исчезновение и появление', items: [
-    { key: 'fadeMs', label: 'Длительность растворения', min: 50, max: 2000, step: 50, unit: 'мс' },
-    { key: 'vanishOffset', label: 'Исчезать позже удара звука на', min: -500, max: 1500, step: 50, unit: 'мс',
-      hint: 'Растворение начинается на ударе звука плюс это время.' },
-    { key: 'appearOffset', label: 'Появляться позже удара звука на', min: -500, max: 1500, step: 50, unit: 'мс',
-      hint: 'Ты полностью проявляешься на ударе звука плюс это время.' },
-    { key: 'captureDelay', label: 'Таймер «Запомнить фон»', min: 1000, max: 15000, step: 500, unit: 'мс' },
+  { title: 'Vanishing and appearing', items: [
+    { key: 'fadeMs', label: 'Dissolve duration', min: 50, max: 2000, step: 50, unit: 'ms' },
+    { key: 'vanishOffset', label: 'Vanish after the sound hit by', min: -500, max: 1500, step: 50, unit: 'ms',
+      hint: 'The dissolve starts at the sound hit plus this time.' },
+    { key: 'appearOffset', label: 'Appear after the sound hit by', min: -500, max: 1500, step: 50, unit: 'ms',
+      hint: 'You are fully visible at the sound hit plus this time.' },
+    { key: 'captureDelay', label: '"Remember background" timer', min: 1000, max: 15000, step: 500, unit: 'ms' },
   ] },
-  { title: 'Звук', items: [
-    { key: 'callVolume', label: 'Громкость в звонке', min: 0, max: 2, step: 0.05, unit: '×' },
-    { key: 'localVolume', label: 'Громкость у тебя', min: 0, max: 2, step: 0.05, unit: '×' },
+  { title: 'Sound', items: [
+    { key: 'callVolume', label: 'Volume in the call', min: 0, max: 2, step: 0.05, unit: '×' },
+    { key: 'localVolume', label: 'Volume for you', min: 0, max: 2, step: 0.05, unit: '×' },
   ] },
-  { title: 'Мем: ✌️ у груди', items: [
-    { key: 'memeHold', label: 'Подержать жест', min: 0, max: 1500, step: 50, unit: 'мс' },
-    { key: 'memeArrive', label: 'Насколько резко «прилететь»', min: 0, max: 0.5, step: 0.01, unit: '',
-      hint: '0 — можно просто держать ✌️ у груди. Больше — рука должна сильнее переместиться.' },
-    { key: 'memeCooldown', label: 'Пауза после срабатывания', min: 0, max: 5000, step: 100, unit: 'мс' },
-    { key: 'chestLine', label: 'Насколько ниже лица считается грудь', min: 0.8, max: 2.5, step: 0.05, unit: '×лицо' },
+  { title: 'Meme: ✌️ at the chest', items: [
+    { key: 'memeHold', label: 'Hold the gesture', min: 0, max: 1500, step: 50, unit: 'ms' },
+    { key: 'memeArrive', label: 'How sharply it must "fly in"', min: 0, max: 0.5, step: 0.01, unit: '',
+      hint: '0: just holding ✌️ at the chest is enough. More: the hand must move further.' },
+    { key: 'memeCooldown', label: 'Pause after it fires', min: 0, max: 5000, step: 100, unit: 'ms' },
+    { key: 'chestLine', label: 'How far below the face counts as chest', min: 0.8, max: 2.5, step: 0.05, unit: '×face' },
   ] },
-  { title: 'Щелчок', items: [
-    { key: 'snapSens', label: 'Чувствительность к звуку щелчка', min: 0, max: 100, step: 1, unit: '%' },
-    { key: 'snapTouch', label: 'Большой палец у среднего: не дальше', min: 0.1, max: 1, step: 0.01, unit: '' },
-    { key: 'snapLift', label: 'Средний палец поднят: не меньше', min: 0, max: 1.5, step: 0.01, unit: '' },
-    { key: 'snapWindow', label: 'Поза щелчка до звука: не раньше чем за', min: 200, max: 2000, step: 50, unit: 'мс' },
+  { title: 'Snap', items: [
+    { key: 'snapSens', label: 'Snap sound sensitivity', min: 0, max: 100, step: 1, unit: '%' },
+    { key: 'snapTouch', label: 'Thumb near middle finger: no further than', min: 0.1, max: 1, step: 0.01, unit: '' },
+    { key: 'snapLift', label: 'Middle finger raised: at least', min: 0, max: 1.5, step: 0.01, unit: '' },
+    { key: 'snapWindow', label: 'Snap pose before the sound: no earlier than', min: 200, max: 2000, step: 50, unit: 'ms' },
   ] },
-  { title: 'Печати', items: [
-    { key: 'sealGap', label: 'Время между печатями', min: 500, max: 8000, step: 250, unit: 'мс' },
+  { title: 'Seals', items: [
+    { key: 'sealGap', label: 'Time between seals', min: 500, max: 8000, step: 250, unit: 'ms' },
   ] },
 ];
 

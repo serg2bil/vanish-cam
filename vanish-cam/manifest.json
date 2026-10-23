@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Vanish Cam",
+  "version": "5.0",
+  "permissions": ["storage"],
+  "description": "Исчезай из видео в звонке жестом: ✌️ у груди, щелчок или печати.",
+  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Vanish Cam",
+    "default_icon": { "16": "icons/16.png", "32": "icons/32.png" }
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["hook.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["settings.js", "lib/wasm/vision_wasm_internal.js", "gestures.js", "ml.js", "vanish.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "web_accessible_resources": [{
+    "resources": ["ml.js", "lib/*", "lib/wasm/*", "lib/ort/*", "models/*"],
+    "matches": ["<all_urls>"]
+  }]
+}

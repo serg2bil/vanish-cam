@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Vanish Cam</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="top">
+    <button id="back" class="icon" hidden aria-label="Назад">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+    </button>
+    <img class="logo" src="icons/48.png" alt="">
+    <h1 id="title">Vanish Cam</h1>
+    <button id="gear" class="icon" aria-label="Продвинутые настройки" title="Продвинутые настройки">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+    </button>
+  </header>
+
+  <main id="main">
+    <section class="card state">
+      <div class="where"><span id="dot" class="dot"></span><span id="where">Проверяю вкладку…</span></div>
+      <button id="toggle" class="primary" disabled>Исчезнуть</button>
+      <button id="capture" class="secondary" disabled>Запомнить фон</button>
+      <p id="info" class="muted" role="status"></p>
+    </section>
+
+    <section class="card">
+      <div class="field">
+        <label for="mode">Жест</label>
+        <select id="mode"></select>
+        <p id="modeHint" class="muted"></p>
+      </div>
+      <div class="field">
+        <label for="vanishSound">Звук исчезновения</label>
+        <div class="row"><select id="vanishSound"></select><button class="play" data-for="vanishSound" aria-label="Послушать звук исчезновения">▶</button></div>
+      </div>
+      <div class="field">
+        <label for="appearSound">Звук появления</label>
+        <div class="row"><select id="appearSound"></select><button class="play" data-for="appearSound" aria-label="Послушать звук появления">▶</button></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <label class="switch"><input type="checkbox" id="panel"><span>Панель на странице звонка</span></label>
+    </section>
+
+    <p class="foot">Alt+Shift+H — исчезнуть или появиться с клавиатуры</p>
+  </main>
+
+  <main id="adv" hidden>
+    <section class="card">
+      <div class="field">
+        <label for="device">Вычисления</label>
+        <select id="device"></select>
+        <p class="muted">Если видеокарта не подойдёт, расширение само перейдёт на процессор.</p>
+      </div>
+      <div class="field">
+        <label for="segModel">Модель вырезания</label>
+        <select id="segModel"></select>
+        <p class="muted">На процессоре качественная модель очень медленная — для него выбирай быструю.</p>
+      </div>
+      <p id="perf" class="muted"></p>
+    </section>
+    <section class="card">
+      <h2>Свои звуки</h2>
+      <p class="muted">Расширение не содержит звуков. Выбери свои файлы (mp3, wav, до 3 МБ) и назначь их на главном экране.</p>
+      <div class="field"><label for="mine1">Звук 1</label>
+        <div class="row"><input type="file" id="mine1" accept="audio/*"><button class="play" id="mine1Clear" aria-label="Убрать звук 1">✕</button></div>
+        <p class="muted" id="mine1Name"></p></div>
+      <div class="field"><label for="mine2">Звук 2</label>
+        <div class="row"><input type="file" id="mine2" accept="audio/*"><button class="play" id="mine2Clear" aria-label="Убрать звук 2">✕</button></div>
+        <p class="muted" id="mine2Name"></p></div>
+    </section>
+    <div id="advGroups"></div>
+    <section class="card">
+      <label class="switch"><input type="checkbox" id="gdebug"><span>Отладка жестов на странице</span></label>
+      <p class="muted">Показывает руки так, как их видит модель, и почему жест сработал или нет. Видишь только ты.</p>
+    </section>
+    <button id="reset" class="secondary wide">Сбросить всё по умолчанию</button>
+  </main>
+
+  <script src="settings.js"></script>
+  <script src="gestures.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

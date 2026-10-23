@@ -8,61 +8,60 @@ picture, keeps the live background, and makes you vanish on a gesture, with an o
 - Hands and face: MediaPipe HandLandmarker / FaceDetector. Everything runs locally in the browser.
 - Toolbar popup with simple defaults and an advanced screen (delays, thresholds, GPU/CPU).
 
-## Установка и использование
-Нужен браузер Chrome (подойдут также Edge и Brave). Расширение пока не в магазине Chrome, поэтому ставится вручную. Это безопасно: оно работает только на твоём компьютере и ничего никуда не отправляет.
+## Install and use
 
-### 1. Скачай и распакуй
+You need Chrome (Edge and Brave work too). The extension is not in the Chrome Web Store yet, so you install it by hand. It runs only on your computer and sends nothing anywhere.
 
-1. Скачай файл `vanish-cam.zip` (на GitHub: раздел **Releases**, файл `vanish-cam.zip`).
-2. Нажми на него правой кнопкой мыши и выбери **«Извлечь всё…»** (Windows) или просто дважды кликни по нему (Mac).
-3. Положи получившуюся папку `vanish-cam` туда, где она не потеряется, например в «Документы». **Потом её нельзя удалять или переносить**: Chrome запускает расширение прямо из этой папки.
+### 1. Download and unpack
 
-### 2. Открой страницу расширений и включи режим разработчика
+1. Download `vanish-cam.zip` from the **Releases** page of this repository.
+2. Unpack it: right-click, **Extract All…** (Windows) or double-click (Mac).
+3. Put the `vanish-cam` folder somewhere permanent, for example Documents. **Don't delete or move it afterwards**: Chrome runs the extension straight from that folder.
 
-1. В адресной строке Chrome введи `chrome://extensions` и нажми Enter.
-2. В правом верхнем углу включи переключатель **«Режим разработчика»** (на рисунке под номером 1).
+### 2. Open the extensions page and turn on Developer mode
 
-![Режим разработчика](docs/img/step2-devmode.png)
+1. Type `chrome://extensions` in the address bar and press Enter.
+2. Switch on **Developer mode** in the top right corner (mark 1).
 
-### 3. Загрузи папку
+![Developer mode](docs/img/step2-devmode.png)
 
-1. Слева вверху появится кнопка **«Загрузить распакованное расширение»** (номер 1). Нажми её.
-2. В окне выбора выбери папку `vanish-cam` (ту, внутри которой лежит файл `manifest.json`) и нажми **«Выбор папки»**.
+### 3. Load the folder
 
-![Загрузить распакованное](docs/img/step3-load.png)
+1. Click **Load unpacked** at the top left (mark 1).
+2. Pick the `vanish-cam` folder (the one that contains `manifest.json`) and click **Select Folder**.
 
-### 4. Готово
+![Load unpacked](docs/img/step3-load.png)
 
-В списке появится карточка **Vanish Cam** (номер 1) с включённым переключателем (номер 2). Если переключатель выключен, включи его.
+### 4. Done
 
-![Расширение установлено](docs/img/step4-done.png)
+A **Vanish Cam** card appears (mark 1). Make sure its switch is on (mark 2). To keep the icon handy, click the puzzle icon right of the address bar and pin Vanish Cam.
 
-Чтобы значок всегда был под рукой, нажми на иконку пазла справа от адресной строки и закрепи Vanish Cam (кнопка с булавкой).
+![Extension installed](docs/img/step4-done.png)
 
-### 5. Как пользоваться
+### 5. Use it
 
-1. Открой звонок (Google Meet, Zoom в браузере и т. п.) и **включи камеру**. Если вкладка со звонком уже была открыта, сначала **перезагрузи её** (F5).
-2. Нажми на значок Vanish Cam. Окно выглядит так:
+1. Open a call (Google Meet, Zoom in the browser, etc.) and **turn your camera on**. If the call tab was already open, reload it first (F5).
+2. Click the Vanish Cam icon. The popup looks like this (its interface is in Russian):
 
-   ![Окно расширения](docs/img/popup.png)
+   ![Popup](docs/img/popup.png)
 
-3. Выбери жест (по умолчанию «Мем: ✌️ у груди»): резко поднеси два пальца к груди, и ты исчезнешь. Ещё раз покажешь жест, и появишься.
-4. Нет жеста под рукой? Нажми кнопку **«Исчезнуть»** или комбинацию **Alt+Shift+H**.
-5. Если за спиной что-то изменилось и остались артефакты, нажми **«Запомнить фон»** и отойди от камеры на 5 секунд.
+3. Pick a gesture (default: the meme, ✌️ flicked at your chest). Do it and you vanish; do it again and you reappear.
+4. No gesture handy? Press the **Исчезнуть** (Vanish) button or `Alt+Shift+H`.
+5. If something behind you changed and artifacts remain, press **Запомнить фон** (Remember background) and step out of the frame for 5 seconds.
 
-### Если что-то не работает
+### Troubleshooting
 
-| Что происходит | Что делать |
+| What you see | What to do |
 |---|---|
-| В окне написано «Камера на этой вкладке не включена» | Перезагрузи вкладку со звонком и включи камеру |
-| Видео тормозит | Нажми шестерёнку, в «Вычисления» выбери «Видеокарта», а в «Модель вырезания» — «Простая» |
-| Вокруг тебя артефакты | Отойди от камеры на 5 секунд и нажми «Запомнить фон» |
-| При запуске Chrome пишет «Отключить расширения в режиме разработчика» | Закрой окно (крестик или «Отмена»), расширение останется. Это обычное предупреждение для ручной установки |
-| Расширение пропало | Папку `vanish-cam` удалили или перенесли: повтори шаги 2–3 |
+| The popup says the camera isn't on for this tab | Reload the call tab and turn the camera on |
+| Video is slow | Open the gear in the popup, set the compute option to GPU and the cutout model to the simple one |
+| Artifacts around you | Step out of the frame for 5 seconds and press "Remember background" |
+| Chrome warns about "developer mode extensions" at startup | Close the warning; the extension stays. It is normal for manual installs |
+| The extension disappeared | The `vanish-cam` folder was deleted or moved: repeat steps 2–3 |
 
-### Как обновить
+### Updating
 
-Скачай новый zip, замени содержимое папки `vanish-cam` новыми файлами, затем на `chrome://extensions` нажми ↻ на карточке Vanish Cam и перезагрузи вкладку со звонком.
+Download the new zip, replace the files in the `vanish-cam` folder, press ↻ on the Vanish Cam card at `chrome://extensions` and reload the call tab.
 
 ## Sounds
 

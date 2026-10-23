@@ -118,7 +118,7 @@ function getMix() {
   local.connect(ac.destination);
   // Autoplay rules keep audio paused until you click or press a key on the page; until then
   // the mic sent to the call is silent, so resume at the first chance.
-  for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => ac.resume(), true);
+  for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => ac.resume().catch(() => {}), true); // a closed context rejects
   ac.resume();
   return mix = { ac, call, local };
 }
@@ -280,7 +280,7 @@ function listenForSnap(mic) {
   ac.createMediaStreamSource(new MediaStream([mic]))
     .connect(new BiquadFilterNode(ac, { type: 'highpass', frequency: 2500 })) // snaps are sharp clicks
     .connect(an);
-  for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => ac.resume(), true);
+  for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => ac.resume().catch(() => {}), true); // a closed context rejects
   const buf = new Float32Array(an.fftSize);
   let noise = 0.01, lastSnap = 0;
   const timer = setInterval(() => {

@@ -60,6 +60,7 @@ self.makeMlEngine = function makeMlEngine(post) {
   async function loadRVM(cpu) {
     const ort = await import(url('lib/ort/ort.webgpu.min.mjs'));
     ort.env.wasm.wasmPaths = url('lib/ort/');
+    ort.env.logLevel = 'error'; // "some nodes run on the CPU" warnings are normal and show up as extension errors
     ort.env.wasm.numThreads = 1; // threads need cross-origin isolation, which pages don't have
     const states = ['r1o', 'r2o', 'r3o', 'r4o'];
     const input = new Float32Array(3 * px);
@@ -67,7 +68,7 @@ self.makeMlEngine = function makeMlEngine(post) {
     async function build(used) {
       const gpu = used === 'webgpu';
       const sess = await ort.InferenceSession.create(url('models/rvm_mobilenetv3_fp32.onnx'), {
-        executionProviders: [used],
+        executionProviders: [used], logSeverityLevel: 3,
         ...(gpu && { preferredOutputLocation: Object.fromEntries(states.map(k => [k, 'gpu-buffer'])) }), // state stays on the GPU
       });
       const zero = () => new ort.Tensor('float32', new Float32Array(1), [1, 1, 1, 1]);

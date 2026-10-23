@@ -3,3 +3,4 @@ test-out/
 node_modules/
 vanish-cam/sounds/
 store/*.zip
+docs/*.zip

@@ -108,31 +108,31 @@ const toggle = () => { S.hidden = !S.hidden; ui?.sync(); };
 let mix = null, pending = false;
 let sounds = {}; // slot -> Promise<{ fwd, rev, hit, revHit }>
 
-function localMix() { // no mic in this call: sounds only for you
+// One AudioContext for the page: your speakers, plus every mic stream the site asked for
+// (a video call and a separate audio call both get the effect).
+function getMix() {
+  if (mix) return mix;
   const ac = new AudioContext();
+  const call = new GainNode(ac, { gain: CFG.callVolume });
   const local = new GainNode(ac, { gain: CFG.localVolume });
   local.connect(ac.destination);
-  return { ac, call: null, local };
-}
-
-function setupMix(mic) {
-  const ac = new AudioContext();
-  const dest = ac.createMediaStreamDestination();
-  ac.createMediaStreamSource(new MediaStream([mic])).connect(dest);
-  const call = new GainNode(ac, { gain: CFG.callVolume });
-  call.connect(dest); // into the call
-  const local = new GainNode(ac, { gain: CFG.localVolume });
-  local.connect(ac.destination); // and for you
   // Autoplay rules keep audio paused until you click or press a key on the page; until then
   // the mic sent to the call is silent, so resume at the first chance.
   for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => ac.resume(), true);
   ac.resume();
-  mix = { ac, call, local };
+  return mix = { ac, call, local };
+}
+
+function setupMix(mic) {
+  const m = getMix();
+  const dest = m.ac.createMediaStreamDestination();
+  m.ac.createMediaStreamSource(new MediaStream([mic])).connect(dest);
+  m.call.connect(dest); // the effect goes into this mic stream
   return dest.stream.getAudioTracks()[0];
 }
 
 function loadSound(slot) {
-  mix ??= localMix();
+  getMix();
   return sounds[slot] ??= chrome.storage.local.get(slot).then(r => {
     if (!r[slot]) return null;
     return mix.ac.decodeAudioData(Uint8Array.from(atob(r[slot].b64), c => c.charCodeAt(0)).buffer);
@@ -304,6 +304,15 @@ const canvas = (w = 1, h = 1, read = false) => {
   const c = new OffscreenCanvas(w, h);
   return [c, c.getContext('2d', { willReadFrequently: read })];
 };
+
+// A call with only the mic (Meet asks for camera and mic separately): same mix, no video.
+document.addEventListener('vanish-audio', e => {
+  const box = e.target;
+  const outA = document.createElement('video');
+  outA.srcObject = new MediaStream([setupMix(box.firstChild.srcObject.getAudioTracks()[0])]);
+  box.append(outA);
+  box.dispatchEvent(new Event('vanish-audio-ready'));
+});
 
 document.addEventListener('vanish-start', e => {
   const box = e.target;

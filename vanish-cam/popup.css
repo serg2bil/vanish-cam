@@ -130,3 +130,6 @@ select {
 .sound { align-items: center; padding: 4px 0; }
 .sound span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file { text-align: center; cursor: pointer; }
+
+.icon.gh { text-decoration: none; }
+.icon.gh svg { fill: currentColor; stroke: none; width: 18px; height: 18px; }

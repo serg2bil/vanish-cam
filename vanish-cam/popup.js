@@ -33,7 +33,7 @@ $('gdebug').addEventListener('change', () => { settings.gdebug = $('gdebug').che
 const fmt = (v, unit) => unit === 'ms' ? `${Math.round(v)} ms`
   : unit === '%' ? `${Math.round(v)}%`
   : unit === '×' ? `${(+v).toFixed(2)}×`
-  : unit === '×face' ? `${(+v).toFixed(2)} face`
+  : unit === '×face' ? `${(+v).toFixed(2)} ${T('face')}`
   : (+v).toFixed(2);
 
 for (const group of ADVANCED) {
@@ -59,15 +59,15 @@ for (const group of ADVANCED) {
 }
 
 $('reset').addEventListener('click', () => {
-  const { panel, mode, vanishSound, appearSound } = settings; // keep the main-screen choices
-  settings = { ...DEFAULTS, panel, mode, vanishSound, appearSound };
+  const { panel, mode, vanishSound, appearSound, lang } = settings; // keep the main-screen choices
+  settings = { ...DEFAULTS, panel, mode, vanishSound, appearSound, lang };
   render();
   save(true);
 });
 
 function render() {
   for (const id of ['mode', 'vanishSound', 'appearSound', 'device', 'segModel']) $(id).value = settings[id];
-  $('modeHint').textContent = MODE_HINTS[settings.mode] ?? '';
+  $('modeHint').textContent = T(MODE_HINTS[settings.mode] ?? '');
   $('panel').checked = settings.panel;
   $('gdebug').checked = settings.gdebug;
   for (const group of ADVANCED) for (const it of group.items) {
@@ -81,12 +81,26 @@ function showAdvanced(on) {
   $('adv').hidden = !on;
   $('gear').hidden = on;
   $('back').hidden = !on;
-  $('title').textContent = on ? 'Settings' : 'Vanish Cam';
+  $('title').textContent = on ? T('Settings') : 'Vanish Cam';
 }
 $('gear').addEventListener('click', () => showAdvanced(true));
 $('back').addEventListener('click', () => showAdvanced(false));
 
-chrome.storage.local.get('settings', async r => { settings = { ...DEFAULTS, ...r.settings }; await loadSounds(); render(); });
+function setLang(lang) {
+  LANG = lang;
+  $('lang').textContent = lang.toUpperCase();
+  localize();
+  if (!$('adv').hidden) $('title').textContent = T('Settings');
+  renderSounds();
+  render();
+}
+$('lang').addEventListener('click', () => { settings.lang = LANG === 'ru' ? 'en' : 'ru'; setLang(settings.lang); save(true); });
+
+chrome.storage.local.get('settings', async r => {
+  settings = { ...DEFAULTS, ...r.settings };
+  await loadSounds();
+  setLang(settings.lang || (navigator.language.startsWith('ru') ? 'ru' : 'en'));
+});
 
 // ---------- your own sounds (the extension ships none) ----------
 const MAX_SOUND = 3 * 1024 * 1024;
@@ -100,15 +114,15 @@ const toB64 = bytes => {
 
 function renderSounds() {
   for (const id of ['vanishSound', 'appearSound']) {
-    $(id).replaceChildren(...sounds.flatMap(s => [new Option(s.name, s.id), new Option(s.name + ' (reversed)', s.id + ':rev')]), new Option('No sound', 'off'));
+    $(id).replaceChildren(...sounds.flatMap(s => [new Option(s.name, s.id), new Option(`${s.name} ${T('(reversed)')}`, s.id + ':rev')]), new Option(T('No sound'), 'off'));
     if (![...$(id).options].some(o => o.value === settings[id])) settings[id] = 'off';
     $(id).value = settings[id];
   }
   $('soundList').replaceChildren(...sounds.map(s => {
     const row = Object.assign(document.createElement('div'), { className: 'row sound' });
     const name = Object.assign(document.createElement('span'), { textContent: s.name });
-    const play = Object.assign(document.createElement('button'), { className: 'play', textContent: '▶', title: 'Play' });
-    const del = Object.assign(document.createElement('button'), { className: 'play', textContent: '✕', title: 'Delete' });
+    const play = Object.assign(document.createElement('button'), { className: 'play', textContent: '▶', title: T('Play') });
+    const del = Object.assign(document.createElement('button'), { className: 'play', textContent: '✕', title: T('Delete') });
     play.onclick = () => preview(s.id);
     del.onclick = () => setSounds(sounds.filter(x => x.id !== s.id));
     row.append(name, play, del);
@@ -117,7 +131,7 @@ function renderSounds() {
 }
 
 async function setSounds(list) {
-  try { await chrome.storage.local.set({ sounds: list }); } catch { $('soundErr').textContent = 'Out of space, delete some sounds'; return; }
+  try { await chrome.storage.local.set({ sounds: list }); } catch { $('soundErr').textContent = T('Out of space, delete some sounds'); return; }
   sounds = list;
   renderSounds();
   save(true); // a removed sound may have reset a choice
@@ -127,7 +141,7 @@ $('addSound').addEventListener('change', async () => {
   $('soundErr').textContent = '';
   const next = [...sounds];
   for (const f of $('addSound').files) {
-    if (f.size > MAX_SOUND) { $('soundErr').textContent = `${f.name}: over 3 MB`; continue; }
+    if (f.size > MAX_SOUND) { $('soundErr').textContent = `${f.name}: ${T('over 3 MB')}`; continue; }
     next.push({ id: 's' + Date.now() + next.length, name: f.name.replace(/\.[^.]+$/, ''), b64: toB64(new Uint8Array(await f.arrayBuffer())) });
   }
   $('addSound').value = '';
@@ -192,20 +206,20 @@ function showState(r) {
   $('toggle').disabled = $('capture').disabled = !live;
   $('dot').className = 'dot' + (live ? (r.hidden ? ' hidden' : ' live') : '');
   if (!live) {
-    $('where').textContent = 'The camera is not on in this tab';
-    $('info').textContent = 'Open a call (Meet, Zoom in the browser, etc.) and turn the camera on. If the tab was already open, reload it.';
-    $('toggle').textContent = 'Vanish';
+    $('where').textContent = T('The camera is not on in this tab');
+    $('info').textContent = T('Open a call (Meet, Zoom in the browser, etc.) and turn the camera on. If the tab was already open, reload it.');
+    $('toggle').textContent = T('Vanish');
     $('toggle').classList.remove('on');
     return;
   }
-  $('where').textContent = r.hidden ? 'You are hidden from the video' : 'Camera is running';
-  $('toggle').textContent = r.pending ? '…' : r.hidden ? 'Appear' : 'Vanish';
+  $('where').textContent = T(r.hidden ? 'You are hidden from the video' : 'Camera is running');
+  $('toggle').textContent = r.pending ? '…' : T(r.hidden ? 'Appear' : 'Vanish');
   $('toggle').classList.toggle('on', r.hidden);
-  $('capture').textContent = r.captureIn > 0 ? `Step out of frame… ${Math.ceil(r.captureIn / 1000)}` : 'Remember background';
+  $('capture').textContent = r.captureIn > 0 ? `${T('Step out of frame…')} ${Math.ceil(r.captureIn / 1000)}` : T('Remember background');
   $('info').textContent = [r.status, r.fps ? `${r.fps} fps` : '', r.info].filter(Boolean).join(' · ');
   // Model speed, to compare GPU vs CPU (ms per run, averaged over the last second).
   const p = r.perf, ms = v => (v == null ? '—' : `${Math.round(v)} ms`);
-  const speed = p ? `Cutout ${ms(p.seg)} · Hands ${ms(p.hands)} · Face ${ms(p.face)} · ${p.jobs ?? '—'}/s · video ${r.fps} fps` : '';
+  const speed = p ? `${T('Cutout')} ${ms(p.seg)} · ${T('Hands')} ${ms(p.hands)} · ${T('Face')} ${ms(p.face)} · ${p.jobs ?? '—'}/s · ${T('video')} ${r.fps} fps` : '';
   $('perf').textContent = speed ? `${r.status}\n${speed}` : '';
 }
 

@@ -10,7 +10,11 @@ picture, keeps the live background, and makes you vanish on a gesture, with an o
 
 ## Install and use
 
-You need Chrome (Edge and Brave work too). The extension is not in the Chrome Web Store yet, so you install it by hand. It runs only on your computer and sends nothing anywhere.
+**Easiest: install from the Chrome Web Store** (updates come automatically):
+**[Vanish Cam in the Chrome Web Store](https://chromewebstore.google.com/detail/vanish-cam/ohooblpnadanabnffhklbbncelbnmhao)**, then click **Add to Chrome**.
+
+Or install it by hand from this repository (steps below). Either way it runs only on your computer and sends nothing anywhere.
+Works in Chrome, Edge and Brave.
 
 ### 1. Download and unpack
 

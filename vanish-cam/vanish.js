@@ -97,7 +97,9 @@ function applySettings(saved) {
   ensureModels();
   ui?.sync();
 }
-const saveSetting = (key, value) => chrome.storage.local.get('settings', r => chrome.storage.local.set({ settings: { ...r.settings, [key]: value } }));
+// One write per change: two saves at once would both read the old settings and the last one wins.
+const saveSettings = patch => chrome.storage.local.get('settings', r => chrome.storage.local.set({ settings: { ...r.settings, ...patch } }));
+const saveSetting = (key, value) => saveSettings({ [key]: value });
 
 const toggle = () => { S.hidden = !S.hidden; ui?.sync(); };
 
@@ -231,6 +233,7 @@ chrome.storage.onChanged.addListener(ch => {
   if (ch.sounds) sounds = {}; // the list changed
 });
 let snap1Hits = 0, snap2Hits = 0;
+const snapGate = makeSnapGate();
 function watchHands(result, now, face) {
   const lms = result.landmarks;
   if (CFG.mode === 'meme') {
@@ -251,6 +254,14 @@ function watchHands(result, now, face) {
   snap2Hits = n >= 2 ? snap2Hits + 1 : 0;
   if (snap1Hits >= 2) preSnapAt = now;
   if (snap2Hits >= 2) preSnap2At = now;
+  const r = snapGate.hands(n, CFG.mode === 'snap2' ? 2 : 1, now, CFG.snapRelease);
+  if (r) snapSays(r === 'fire' ? 'fingers moved ✓' : 'hand held still: ignored');
+  if (r === 'fire') trigger();
+}
+function snapSays(info) {
+  S.snapInfo = info;
+  log('snap?', info);
+  setTimeout(() => { if (S.snapInfo === info) S.snapInfo = ''; }, 2500);
 }
 
 // Paint detected hands as thick finger strokes + filled palm onto a mask canvas.
@@ -292,10 +303,12 @@ function listenForSnap(mic) {
     if ((CFG.mode === 'snap' || CFG.mode === 'snap2') && peak > snapLoudness() && peak > noise * 6 && now - lastSnap > 800) {
       const two = CFG.mode === 'snap2';
       const handOk = now - (two ? preSnap2At : preSnapAt) < CFG.snapWindow;
-      S.snapInfo = `sound ${peak.toFixed(2)}, ${handOk ? (two ? 'both hands ✓' : 'hand ✓') : (two ? 'need both hands' : 'no hand seen')}`;
-      log('snap?', S.snapInfo);
-      setTimeout(() => S.snapInfo = '', 2500);
-      if (handOk) { lastSnap = now; trigger(); }
+      snapSays(`sound ${peak.toFixed(2)}, ${handOk ? (two ? 'both hands ✓' : 'hand ✓') : (two ? 'need both hands' : 'no hand seen')}`);
+      if (handOk) { // the hand frames decide (watchHands); no frames at all = no snap
+        lastSnap = now;
+        snapGate.sound(now);
+        setTimeout(() => { if (snapGate.waiting) { snapGate.cancel(); snapSays('no hand frames after the sound'); } }, CFG.snapRelease + 1000);
+      }
     }
     noise = noise * 0.95 + peak * 0.05;
   }, 20);
@@ -482,7 +495,7 @@ function makePanel() {
   const body = el('div', { className: 'body' }, mainBtn, bgBtn, dbg, status);
   const min = el('button', { className: 'min', textContent: '–', title: 'Minimize', onclick: () => { body.hidden = !body.hidden; } });
   const close = el('button', { className: 'min', textContent: '×', title: 'Hide the panel (bring it back from the extension popup)',
-    onclick: () => { saveSetting('panel', false); saveSetting('gdebug', false); } });
+    onclick: () => saveSettings({ panel: false, gdebug: false }) });
   const head = el('header', {}, '👻 Vanish Cam', el('span', {}, min, close));
 
   head.onpointerdown = e => {

@@ -5,8 +5,8 @@ import assert from 'assert/strict';
 
 const ctx = {};
 vm.runInNewContext(['settings.js', 'gestures.js'].map(f => fs.readFileSync(new URL('../vanish-cam/' + f, import.meta.url), 'utf8')).join('\n') +
-  ';Object.assign(globalThis, { handPose, isSnapPose, makeSealTracker, SEALS, isMemePose, makeHoldTracker, soundHit, CFG })', ctx);
-const { handPose, isSnapPose, makeSealTracker, SEALS, isMemePose, makeHoldTracker, soundHit } = ctx;
+  ';Object.assign(globalThis, { handPose, isSnapPose, makeSealTracker, SEALS, isMemePose, makeHoldTracker, soundHit, makeSnapGate, CFG })', ctx);
+const { handPose, isSnapPose, makeSealTracker, SEALS, isMemePose, makeHoldTracker, soundHit, makeSnapGate } = ctx;
 
 // Upright hand, wrist at (cx, 0.8). out = [index, middle, ring, pinky]; folded fingers curl back down.
 function hand(cx, out, { thumbOnMiddle = false, wristY = 0.8 } = {}) {
@@ -150,6 +150,21 @@ assert.equal(fires, 0, 'small moves at the chest do not fire');
   const { hit, cut } = soundHit(a, r);
   assert.ok(Math.abs(hit - 0.21) < 0.02, `hit at ${hit}`);
   assert.ok(cut > 1.2 && cut < 1.5, `tail cut at ${cut}`);
+}
+
+// Snap gate: the pose must break right after the sound.
+{
+  const g = makeSnapGate();
+  g.sound(1000);
+  assert.equal(g.hands(0, 1, 990, 300), null, 'frame from before the sound is ignored');
+  assert.equal(g.hands(1, 1, 1030, 300), null, 'still in pose: wait');
+  assert.equal(g.hands(0, 1, 1060, 300), 'fire', 'pose broke: snap');
+  g.sound(2000);
+  assert.equal(g.hands(1, 1, 2100, 300), null);
+  assert.equal(g.hands(1, 1, 2350, 300), 'drop', 'hand held still through the sound: no snap');
+  g.sound(3000);
+  assert.equal(g.hands(1, 2, 3050, 300), 'fire', 'two-hand mode: one hand left the pose');
+  assert.equal(g.hands(0, 1, 3100, 300), null, 'decided once');
 }
 
 assert.equal(SEALS.length, 3);

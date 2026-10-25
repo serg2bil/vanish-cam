@@ -42,6 +42,26 @@ function isSnapPose(lm, world) {
   return lm[0].y < 0.85 && touch < CFG.snapTouch && lift > CFG.snapLift;
 }
 
+// A snap sound counts only if the fingers moved: on the first hand frames after the sound the
+// snap pose must be gone (thumb flew off the finger, or the hand blurred out of the model's view).
+// A hand just held in the pose while you talk or something clicks stays in the pose: dropped.
+// sound(now) on a loud click; hands(n, need, now, ms) on every hand frame, n = hands in snap pose.
+// Returns 'fire' | 'drop' | null (still waiting).
+function makeSnapGate() {
+  let at = null;
+  return {
+    get waiting() { return at !== null; },
+    sound(now) { at = now; },
+    cancel() { at = null; },
+    hands(n, need, now, ms) {
+      if (at === null || now < at) return null; // frame from before the sound
+      if (now > at + ms) { at = null; return 'drop'; }
+      if (n < need) { at = null; return 'fire'; }
+      return null;
+    },
+  };
+}
+
 // Meme "teleport": two fingers up (✌️, together or apart) held in front of the chest.
 // face = { x, y, w, h } (0..1, top-left corner) from the face model, or null.
 // With a face: chest = palm below the chin and roughly in front of you; works at any camera height.

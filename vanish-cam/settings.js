@@ -12,9 +12,10 @@ const DEFAULTS = {
   callVolume: 1, localVolume: 0.6,
   captureDelay: 5000,
   memeHold: 150, memeArrive: 0.15, memeCooldown: 1500, chestLine: 1.25,
-  snapSens: 75, snapTouch: 0.45, snapLift: 0.6, snapWindow: 800,
+  snapSens: 75, snapTouch: 0.45, snapLift: 0.6, snapWindow: 800, snapRelease: 300,
   sealGap: 3000,
   gdebug: false,
+  lang: '',                 // en | ru, '' = the browser's language (popup only)
   device: 'auto',           // auto | cpu: where the models run (auto = graphics card, processor if it fails)
   segModel: 'rvm',          // rvm | simple: cutout model (RVM looks better; on the processor only simple is fast)
 };
@@ -64,6 +65,8 @@ const ADVANCED = [
     { key: 'snapTouch', label: 'Thumb near middle finger: no further than', min: 0.1, max: 1, step: 0.01, unit: '' },
     { key: 'snapLift', label: 'Middle finger raised: at least', min: 0, max: 1.5, step: 0.01, unit: '' },
     { key: 'snapWindow', label: 'Snap pose before the sound: no earlier than', min: 200, max: 2000, step: 50, unit: 'ms' },
+    { key: 'snapRelease', label: 'Fingers must move after the sound within', min: 100, max: 1000, step: 50, unit: 'ms',
+      hint: 'A hand held still in the snap pose while you talk never fires. Raise this if real snaps are missed.' },
   ] },
   { title: 'Seals', items: [
     { key: 'sealGap', label: 'Time between seals', min: 500, max: 8000, step: 250, unit: 'ms' },

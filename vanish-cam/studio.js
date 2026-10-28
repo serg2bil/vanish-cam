@@ -321,7 +321,7 @@ function renderEffects() {
   const set = (k, v) => { settings.fx = { ...settings.fx, [id]: { ...settings.fx?.[id], [k]: v } }; };
   const replay = Object.assign(document.createElement('button'), { className: 'secondary', title: T('Play the effect') });
   replay.append(icon('play'), T('Replay'));
-  replay.onclick = () => demo();
+  replay.onclick = () => { $('stage').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); demo(); };
   const reset = Object.assign(document.createElement('button'), { className: 'secondary', title: T('Reset this effect') });
   reset.append(icon('redo'));
   reset.onclick = () => { const fx = { ...settings.fx }; delete fx[id]; settings.fx = fx; save(true); renderEffects(); };

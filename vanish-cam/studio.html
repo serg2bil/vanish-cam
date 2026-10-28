@@ -50,6 +50,36 @@
       </div>
       <p id="info" class="muted center" role="status"></p>
       <p class="muted center">Alt+Shift+H works here too.</p>
+
+      <div class="card" id="effectCard">
+        <h2><i class="em" data-icon="sparkles"></i>Effect</h2>
+        <div class="tiles" id="effects"></div>
+        <p class="muted">Pick an effect; its settings are right below. Replay shows it on you.</p>
+        <div class="subopts" id="effectOpts"></div>
+      </div>
+
+      <details class="card" id="fine">
+        <summary><h2><i class="em" data-icon="sliders"></i>General</h2></summary>
+        <div class="fineBody">
+        <div class="field">
+          <label for="device">Compute</label>
+          <select id="device"></select>
+          <p class="muted">If the GPU doesn't work, the extension falls back to the CPU.</p>
+        </div>
+        <div class="field">
+          <label for="segModel">Cutout model</label>
+          <select id="segModel"></select>
+          <p class="muted">On the CPU the quality model is very slow; pick the fast one.</p>
+        </div>
+        <p id="perf" class="muted"></p>
+        <div id="advGroups"></div>
+        <div class="switches">
+          <label class="switch"><input type="checkbox" id="panel"><span>Panel on the call page</span></label>
+          <label class="switch"><input type="checkbox" id="gdebug"><span>Gesture debug on the call page</span></label>
+        </div>
+        <button id="reset" class="secondary wide">Reset everything to defaults</button>
+        </div>
+      </details>
     </section>
 
     <section class="right">
@@ -62,13 +92,6 @@
           <button id="record" class="secondary wide"><i class="em" data-icon="rec"></i> Record a new gesture</button>
           <p class="muted">Press, step back so your hand is clearly in the picture, and hold the pose for a second after the countdown, or do the motion (a swipe, a goodbye wave, a circle): the whole path of the hand is remembered, relative to your face. Use one or two hands.</p>
         </div>
-      </div>
-
-      <div class="card">
-        <h2><i class="em" data-icon="sparkles"></i>Effect</h2>
-        <div class="tiles" id="effects"></div>
-        <p class="muted">Pick an effect; its settings are right below. Replay shows it on you.</p>
-        <div class="subopts" id="effectOpts"></div>
       </div>
 
       <div class="card">
@@ -88,24 +111,6 @@
         <div class="subopts" id="soundOpts"></div>
       </div>
 
-      <details class="card" id="fine">
-        <summary><h2><i class="em" data-icon="sliders"></i>General</h2></summary>
-        <div class="field">
-          <label for="device">Compute</label>
-          <select id="device"></select>
-          <p class="muted">If the GPU doesn't work, the extension falls back to the CPU.</p>
-        </div>
-        <div class="field">
-          <label for="segModel">Cutout model</label>
-          <select id="segModel"></select>
-          <p class="muted">On the CPU the quality model is very slow; pick the fast one.</p>
-        </div>
-        <p id="perf" class="muted"></p>
-        <div id="advGroups"></div>
-        <label class="switch"><input type="checkbox" id="panel"><span>Panel on the call page</span></label>
-        <label class="switch"><input type="checkbox" id="gdebug"><span>Gesture debug on the call page</span></label>
-        <button id="reset" class="secondary wide">Reset everything to defaults</button>
-      </details>
     </section>
   </main>
 

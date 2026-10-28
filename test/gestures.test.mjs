@@ -5,8 +5,8 @@ import assert from 'assert/strict';
 
 const ctx = {};
 vm.runInNewContext(['settings.js', 'gestures.js'].map(f => fs.readFileSync(new URL('../vanish-cam/' + f, import.meta.url), 'utf8')).join('\n') +
-  ';Object.assign(globalThis, { handPose, isSnapPose, makeSealTracker, SEALS, isMemePose, makeHoldTracker, soundHit, makeSnapGate, CFG })', ctx);
-const { handPose, isSnapPose, makeSealTracker, SEALS, isMemePose, makeHoldTracker, soundHit, makeSnapGate } = ctx;
+  ';Object.assign(globalThis, { handPose, isSnapPose, makeSealTracker, SEALS, isMemePose, makeHoldTracker, soundHit, makeSnapGate, CFG, recordGesture, gestureScore, makeMoveTracker })', ctx);
+const { handPose, isSnapPose, makeSealTracker, SEALS, isMemePose, makeHoldTracker, soundHit, makeSnapGate, recordGesture, gestureScore, makeMoveTracker } = ctx;
 
 // Upright hand, wrist at (cx, 0.8). out = [index, middle, ring, pinky]; folded fingers curl back down.
 function hand(cx, out, { thumbOnMiddle = false, wristY = 0.8 } = {}) {
@@ -70,7 +70,7 @@ assert.equal(s.step, 0, 'needs both hands');
 s = makeSealTracker(SEALS, { hands: 1 }); done = false;
 for (const out of [V, V, FIST, FIST, OPEN, OPEN]) done = s.update([hand(0.5, out)], t += 100);
 assert.ok(done, 'one-hand sequence completes');
-assert.equal(s.labels.join(' '), '✌️ ✊ ✋');
+assert.equal(s.labels.join(' '), 'V fist palm');
 
 // One-hand mode: the other hand doing something else doesn't block it.
 s = makeSealTracker(SEALS, { hands: 1 }); done = false;
@@ -82,7 +82,7 @@ s = makeSealTracker(SEALS, { hands: 1 }); done = false;
 for (const out of [OPEN, OPEN, FIST, FIST, V, V]) done ||= s.update([hand(0.5, out)], t += 100);
 assert.ok(!done, 'one-hand wrong order does not fire');
 
-assert.equal(makeSealTracker().labels.join(' '), '✌️✌️ ✊✊ ✋✋');
+assert.equal(makeSealTracker().labels.join(' '), 'V ×2 fist ×2 palm ×2');
 
 // Meme pose without a face: fixed chest band of the frame.
 assert.ok(isMemePose(hand(0.5, V, { wristY: 0.9 })), '✌️ at chest height');
@@ -165,6 +165,64 @@ assert.equal(fires, 0, 'small moves at the chest do not fire');
   g.sound(3000);
   assert.equal(g.hands(1, 2, 3050, 300), 'fire', 'two-hand mode: one hand left the pose');
   assert.equal(g.hands(0, 1, 3100, 300), null, 'decided once');
+}
+
+// Your own gestures: record ✌️, then it matches ✌️ anywhere (either hand, any size) but not ✋ or ✊.
+{
+  const g = { ...recordGesture([[hand(0.5, V)], [hand(0.5, V)], [hand(0.5, V)], []]), tol: 0.4, turn: 60 };
+  assert.equal(g.hands, 1);
+  const scale = (lm, k, dx) => lm.map(p => ({ x: 0.5 + (p.x - 0.5) * k + dx, y: 0.8 + (p.y - 0.8) * k }));
+  assert.ok(gestureScore(g, [hand(0.5, V)]) > 0.95, 'same pose');
+  assert.ok(gestureScore(g, [scale(hand(0.5, V), 0.6, 0.2)]) > 0.9, 'smaller and elsewhere');
+  assert.ok(gestureScore(g, [scale(hand(0.5, V).map(p => ({ x: 1 - p.x, y: p.y })), 1, 0)]) > 0.9, 'the other hand (mirrored)');
+  assert.ok(gestureScore(g, [hand(0.5, OPEN)]) < 0.5, 'open hand is not ✌️');
+  assert.ok(gestureScore(g, [hand(0.5, FIST)]) < 0.5, 'fist is not ✌️');
+  assert.equal(gestureScore(g, []), 0);
+  const both = { ...recordGesture([two(OPEN), two(OPEN), [hand(0.5, OPEN)]]), tol: 0.4, turn: 60 };
+  assert.equal(both.hands, 2, 'two hands in most frames');
+  assert.ok(gestureScore(both, two(OPEN)) > 0.95);
+  assert.ok(gestureScore(both, [hand(0.5, OPEN)]) === 0, 'two-hand gesture needs two hands');
+}
+
+// A gesture with motion: ✌️ swept to the right (in the camera picture) fires only when swept that way again.
+{
+  const still = { ...recordGesture(Array.from({ length: 20 }, (_, i) => ({ lms: [hand(0.5, V)], t: i * 50 }))), tol: 0.4, turn: 60 };
+  assert.equal(still.move, null, 'no travel = a pose, not a motion');
+  const sweep = (from, to, n = 20) => Array.from({ length: n }, (_, i) => ({ lms: [hand(from + (to - from) * i / (n - 1), V)], t: i * 50 }));
+  const g = { ...recordGesture(sweep(0.3, 0.7)), tol: 0.4, turn: 60 };
+  assert.ok(g.move && g.move.dx > 0.99 && g.move.net > 0.9 && g.move.path.length === 24, 'swept right');
+  const run = (frames, gg = g) => { const tr = makeMoveTracker(gg, { cooldownMs: 1500 }); return frames.map(f => tr.update(f.lms, f.t, f.face ?? null)).filter(Boolean).length; };
+  assert.equal(run(sweep(0.3, 0.7)), 1, 'the same sweep fires once');
+  assert.equal(run(sweep(0.25, 0.75, 14)), 1, 'a bit faster and longer still fires');
+  assert.equal(run(sweep(0.7, 0.3)), 0, 'the other way does not');
+  assert.equal(run(Array.from({ length: 20 }, (_, i) => ({ lms: [hand(0.5, V)], t: i * 50 }))), 0, 'holding still does not');
+  assert.equal(run(sweep(0.3, 0.7).map(f => ({ ...f, lms: [hand(f.lms[0][0].x, OPEN)] }))), 0, 'the wrong pose swept right does not');
+  assert.equal(run([...sweep(0.3, 0.7), ...sweep(0.3, 0.7).map(f => ({ ...f, t: f.t + 3000 }))]), 2, 'again after the cooldown');
+
+  // A wave ("ciao"): there and back. Start and end are the same place, so only the path tells it apart.
+  const wave = (n = 30, t0 = 0, dt = 50) => Array.from({ length: n }, (_, i) => ({ lms: [hand(0.5 + 0.2 * Math.sin(i / (n - 1) * Math.PI * 2), OPEN)], t: t0 + i * dt }));
+  const w = { ...recordGesture(wave()), tol: 0.4, turn: 60 };
+  assert.ok(w.move && w.move.net < 0.2, 'a wave is a motion that comes back');
+  assert.equal(run(wave(), w), 1, 'waving again fires');
+  assert.equal(run(wave(22, 0, 50), w), 1, 'a quicker wave fires too');
+  assert.equal(run(sweep(0.3, 0.7).map(f => ({ ...f, lms: [hand(f.lms[0][0].x, OPEN)] })), w), 0, 'a one-way swipe is not a wave');
+  assert.equal(run(Array.from({ length: 30 }, (_, i) => ({ lms: [hand(0.5, OPEN)], t: i * 50 })), w), 0, 'a raised still palm is not a wave');
+}
+
+// A motion recorded with the face in view: matched relative to the face, at any distance from the camera.
+{
+  const FACE = { x: 0.45, y: 0.1, w: 0.1, h: 0.2 };
+  const sweep = (from, to, face = FACE, n = 20) => Array.from({ length: n }, (_, i) => ({ lms: [hand(from + (to - from) * i / (n - 1), V)], t: i * 50, face }));
+  const g = { ...recordGesture(sweep(0.3, 0.7)), tol: 0.4, turn: 60 };
+  assert.ok(g.move.from && g.move.to && g.move.unit === 0.2, 'start, end and size relative to the face');
+  const run = (frames, gg = g) => { const tr = makeMoveTracker(gg, { cooldownMs: 1500 }); return frames.map(f => tr.update(f.lms, f.t, f.face)).filter(Boolean).length; };
+  assert.equal(run(sweep(0.3, 0.7)), 1, 'same place, same way');
+  assert.equal(run(sweep(0.3, 0.7, { ...FACE, x: 0.05 })), 0, 'same move, but the face is elsewhere: it started in another place relative to you');
+  // further from the camera: you and the move are half the size (around the wrist line)
+  const half = f => ({ ...f, lms: f.lms.map(lm => lm.map(q => ({ x: 0.5 + (q.x - 0.5) * 0.5, y: 0.8 + (q.y - 0.8) * 0.5 }))), face: { x: 0.5 + (FACE.x - 0.5) * 0.5, y: 0.8 + (FACE.y - 0.8) * 0.5, w: FACE.w / 2, h: FACE.h / 2 } });
+  assert.equal(run(sweep(0.3, 0.7).map(half)), 1, 'further from the camera still fires');
+  assert.equal(run(sweep(0.3, 0.7, { ...FACE, x: 0.05 }).map(f => ({ ...f, face: null }))), 1, 'no face now: the path only');
+  assert.equal(run(sweep(0.3, 0.7, { ...FACE, x: 0.05 }), { ...g, zone: 3 }), 1, 'zone "anywhere" ignores the place');
 }
 
 assert.equal(SEALS.length, 3);

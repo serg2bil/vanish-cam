@@ -3,28 +3,24 @@
 <head>
   <meta charset="utf-8">
   <title>Vanish Cam</title>
+  <link rel="stylesheet" href="ui.css">
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header class="top">
-    <button id="back" class="icon" hidden aria-label="Back">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
-    </button>
     <img class="logo" src="icons/48.png" alt="">
-    <h1 id="title">Vanish Cam</h1>
+    <h1>Vanish Cam</h1>
     <a id="repo" class="icon gh" href="https://github.com/serg2bil/vanish-cam" target="_blank" rel="noopener" aria-label="Source code on GitHub" title="Source code on GitHub">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
     </a>
+    <label class="power" title="Turn the extension on or off"><input type="checkbox" id="enabled" role="switch"><span class="track"><span class="knob"></span></span><span id="enabledText">On</span></label>
     <button id="lang" class="icon lang" title="Language">EN</button>
-    <button id="gear" class="icon" aria-label="Advanced settings" title="Advanced settings">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
-    </button>
   </header>
 
-  <main id="main">
+  <main>
     <section class="card state">
       <div class="where"><span id="dot" class="dot"></span><span id="where">Checking the tab…</span></div>
-      <button id="toggle" class="primary" disabled>Vanish</button>
+      <button id="toggle" class="primary big" disabled><i class="em" id="toggleIcon" data-icon="ghost"></i><span id="toggleText">Vanish</span></button>
       <button id="capture" class="secondary" disabled>Remember background</button>
       <p id="info" class="muted" role="status"></p>
     </section>
@@ -36,14 +32,20 @@
         <p id="modeHint" class="muted"></p>
       </div>
       <div class="field">
+        <label for="effect">Effect</label>
+        <select id="effect"></select>
+      </div>
+      <div class="field">
         <label for="vanishSound">Vanish sound</label>
-        <div class="row"><select id="vanishSound"></select><button class="play" data-for="vanishSound" aria-label="Play the vanish sound">▶</button></div>
+        <div class="row"><select id="vanishSound"></select><button class="play" data-for="vanishSound" aria-label="Play the vanish sound"><i data-icon="play"></i></button></div>
       </div>
       <div class="field">
         <label for="appearSound">Appear sound</label>
-        <div class="row"><select id="appearSound"></select><button class="play" data-for="appearSound" aria-label="Play the appear sound">▶</button></div>
+        <div class="row"><select id="appearSound"></select><button class="play" data-for="appearSound" aria-label="Play the appear sound"><i data-icon="play"></i></button></div>
       </div>
     </section>
+
+    <button id="studio" class="secondary wide studio-btn"><i class="em" data-icon="video"></i> <span>Open the studio: preview, record your own gesture, try effects</span></button>
 
     <section class="card">
       <label class="switch"><input type="checkbox" id="panel"><span>Panel on the call page</span></label>
@@ -52,38 +54,13 @@
     <p class="foot">Alt+Shift+H: vanish or appear from the keyboard</p>
   </main>
 
-  <main id="adv" hidden>
-    <section class="card">
-      <div class="field">
-        <label for="device">Compute</label>
-        <select id="device"></select>
-        <p class="muted">If the GPU doesn't work, the extension falls back to the CPU.</p>
-      </div>
-      <div class="field">
-        <label for="segModel">Cutout model</label>
-        <select id="segModel"></select>
-        <p class="muted">On the CPU the quality model is very slow; pick the fast one.</p>
-      </div>
-      <p id="perf" class="muted"></p>
-    </section>
-    <section class="card">
-      <h2>My sounds</h2>
-      <p class="muted">The extension ships no sounds. Add your own files (mp3, wav, up to 3 MB each), then pick them on the main screen.</p>
-      <div id="soundList"></div>
-      <label class="secondary file">Add a sound…<input type="file" id="addSound" accept="audio/*" multiple hidden></label>
-      <p class="muted" id="soundErr"></p>
-    </section>
-    <div id="advGroups"></div>
-    <section class="card">
-      <label class="switch"><input type="checkbox" id="gdebug"><span>Gesture debug on the page</span></label>
-      <p class="muted">Shows the hands as the model sees them and why a gesture fired or not. Only you see it.</p>
-    </section>
-    <button id="reset" class="secondary wide">Reset everything to defaults</button>
-  </main>
-
   <script src="settings.js"></script>
   <script src="gestures.js"></script>
+  <script src="effects.js"></script>
+  <script src="synth.js"></script>
+  <script src="icons.js"></script>
   <script src="i18n.js"></script>
+  <script src="sounds.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

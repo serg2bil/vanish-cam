@@ -1,32 +1,73 @@
 {
   "manifest_version": 3,
   "name": "Vanish Cam",
-  "version": "1.1.0",
-  "permissions": ["storage"],
+  "version": "2.1.0",
+  "permissions": [
+    "storage"
+  ],
   "description": "Vanish from your video call with a gesture or a snap. Cuts you out of the camera picture and keeps the live background.",
-  "icons": { "16": "icons/16.png", "32": "icons/32.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "icons": {
+    "16": "icons/16.png",
+    "32": "icons/32.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "Vanish Cam",
-    "default_icon": { "16": "icons/16.png", "32": "icons/32.png" }
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    }
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["hook.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "hook.js"
+      ],
       "run_at": "document_start",
       "all_frames": true,
       "world": "MAIN"
     },
     {
-      "matches": ["<all_urls>"],
-      "js": ["settings.js", "lib/wasm/vision_wasm_internal.js", "gestures.js", "ml.js", "vanish.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "settings.js",
+        "lib/wasm/vision_wasm_internal.js",
+        "gestures.js",
+        "effects.js",
+        "synth.js",
+        "ml.js",
+        "icons.js",
+        "vanish.js"
+      ],
       "run_at": "document_start",
       "all_frames": true
     }
   ],
-  "web_accessible_resources": [{
-    "resources": ["ml.js", "lib/*", "lib/wasm/*", "lib/ort/*", "models/*"],
-    "matches": ["<all_urls>"]
-  }]
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "ml.js",
+        "lib/*",
+        "lib/wasm/*",
+        "lib/ort/*",
+        "models/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "background": {
+    "service_worker": "bg.js"
+  }
 }

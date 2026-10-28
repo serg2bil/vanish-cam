@@ -3,10 +3,13 @@
 Chrome (MV3) extension for web video calls (tested on Google Meet). It cuts you out of your camera
 picture, keeps the live background, and makes you vanish on a gesture, with an optional sound effect.
 
-- Gestures: ✌️ at the chest (meme), Naruto-style seals, finger snap (one or two hands), or just a button / `Alt+Shift+H`.
+- Gestures: ✌️ at the chest (meme), Naruto-style seals, finger snap (one or two hands), **your own recorded gestures**, or just a button / `Alt+Shift+H`.
+- Effects in the style of video-editor transitions: Thanos disintegrate, flash teleport, RGB glitch, zoom punch, smoke puff, glass shatter, soft dissolve, hard cut with a flash. The effect starts right away; the sound is started part-way in so its hit lands on the effect.
+- One main switch (popup and studio header) turns everything off: the camera goes out untouched and the toolbar icon shows OFF.
+- Sounds: built-in synthesised ones (whoosh, pop, poof, sparkle, teleport, zap, boom, bubble) or your own files; the call hears them too.
+- **Studio** page: your camera through the real pipeline with the hand tracking drawn on top, record a gesture with a countdown, try effects and sounds, all settings.
 - Cutout: Robust Video Matting (ONNX, WebGPU, falls back to CPU) or a faster MediaPipe segmenter.
 - Hands and face: MediaPipe HandLandmarker / FaceDetector. Everything runs locally in the browser.
-- Toolbar popup with simple defaults and an advanced screen (delays, thresholds, GPU/CPU).
 
 ## Install and use
 
@@ -49,9 +52,33 @@ A **Vanish Cam** card appears (mark 1). Make sure its switch is on (mark 2). To 
 
    ![Popup](docs/img/popup.png)
 
-3. Pick a gesture (default: the meme, ✌️ flicked at your chest). Do it and you vanish; do it again and you reappear.
+3. Pick a gesture (default: the meme, ✌️ flicked at your chest), an effect and sounds. Do the gesture and you vanish; do it again and you reappear.
 4. No gesture handy? Press the **Vanish** button or `Alt+Shift+H`.
 5. If something behind you changed and artifacts remain, press **Remember background** and step out of the frame for 5 seconds.
+
+### The studio
+
+Press **Open the studio** in the popup. It opens a page with your camera going through the same pipeline a call
+would use, so you can see exactly what the models see and try everything before a call:
+
+![Studio](docs/img/studio.png)
+
+- The hands are drawn as the model tracks them (the **Tracking** button turns this off), with the pose it recognises (✌️ ✋ ✊ 🫰) and, for the meme gesture, the chest line.
+- **Record a new gesture** (under *My gestures*): a 3-2-1 countdown, then hold the pose for a second. The median hand shape
+  becomes the gesture; it matches anywhere in the frame, at any distance, with either hand. Each gesture has a live
+  match meter, strictness, hold time, allowed tilt and what it does (vanish, appear, or both). Two hands work too.
+- **Gestures with motion**: do the motion while recording (a swipe, a goodbye wave, a circle) and the whole path of
+  the hand is remembered, relative to your face, so it works nearer to or further from the camera. It fires when the
+  hand makes that path again (compared with dynamic time warping, so a quicker or slower wave still counts), starting
+  and ending near the same place relative to your face. The studio draws the recorded path, the start and end zones
+  and your hand's trail; each motion gesture has *Motion accuracy* and *Place relative to the face* sliders.
+- Click an effect to see it on yourself. The **Vanish** button and `Alt+Shift+H` work here as well.
+- Settings sit next to what they belong to:
+  - under the gesture tiles, the selected mode's own thresholds (meme, seals, snap);
+  - under the effect tiles, the selected effect's own sliders: duration plus e.g. dust spread and grain, flash
+    brightness and glow colour, glitch tear and shake, number of shards. Letting go of a slider replays the effect;
+  - in the sounds card, sound timing and volumes;
+  - **General** has the compute / cutout model choice, model speed, the background timer and the debug switches.
 
 ### Troubleshooting
 
@@ -69,8 +96,8 @@ Download the new zip, replace the files in the `vanish-cam` folder, press ↻ on
 
 ## Sounds
 
-The extension ships no sounds. In the popup open the gear, "My sounds", add audio files (mp3 or wav, up to 3 MB each),
-then choose them (or their reversed versions) for vanishing and appearing on the main screen.
+Built-in sounds are synthesised in the browser (no audio files, nothing to license). To use your own, open the studio,
+"Sounds", add audio files (mp3 or wav, up to 3 MB each); they appear in the lists (also reversed) next to the built-in ones.
 
 ## Tests
 
@@ -79,7 +106,8 @@ npm i puppeteer-core
 node test/gestures.test.mjs
 ```
 
-`test/popup.mjs`, `test/run.mjs`, `test/perf.mjs` drive a real Chrome with a fake camera (pass the path to `chrome.exe`).
+`test/studio.mjs` (records a gesture and plays an effect in the studio), `test/switch.mjs` (switches the cutout model and compute device back and forth), `test/popup.mjs`, `test/run.mjs`, `test/perf.mjs`
+drive a real Chrome with a fake camera (pass the path to `chrome.exe`).
 
 ## Licenses
 

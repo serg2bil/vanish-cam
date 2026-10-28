@@ -1,7 +1,7 @@
 # Chrome Web Store: what to paste where
 
 Dashboard: https://chrome.google.com/webstore/devconsole (one-time $5 developer fee).
-Upload `store/vanish-cam-store.zip` (run `sh store/build.sh`; it leaves out your local `sounds/` folder).
+Upload `store/vanish-cam-store.zip` (run `python store/build.py`; it leaves out your local `sounds/` folder).
 
 ## Store listing
 

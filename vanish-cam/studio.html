@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Vanish Cam Studio</title>
+  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="studio.css">
+</head>
+<body>
+  <header class="top">
+    <img class="logo" src="icons/48.png" alt="">
+    <h1>Vanish Cam <span class="thin">Studio</span></h1>
+    <p class="muted tagline">Try everything here before the call. Only you see this camera.</p>
+    <a class="icon gh" href="https://github.com/serg2bil/vanish-cam" target="_blank" rel="noopener" aria-label="Source code on GitHub" title="Source code on GitHub">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+    </a>
+    <label class="power" title="Turn the extension on or off"><input type="checkbox" id="enabled" role="switch"><span class="track"><span class="knob"></span></span><span id="enabledText">On</span></label>
+    <button id="lang" class="icon lang" title="Language">EN</button>
+  </header>
+
+  <main>
+    <section class="left">
+      <div class="stage" id="stage">
+        <video id="cam" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+        <div class="pill" id="pill"><span class="dot" id="dot"></span><span id="status">Starting the camera…</span></div>
+        <div class="pill right" id="handsPill" hidden></div>
+        <div class="banner" id="banner" hidden></div>
+        <div class="rec" id="rec" hidden>
+          <svg viewBox="0 0 100 100" class="ring"><circle cx="50" cy="50" r="44" class="track"/><circle cx="50" cy="50" r="44" class="bar" id="ringBar"/></svg>
+          <div class="count" id="count">3</div>
+          <div class="say" id="say">Get ready…</div>
+        </div>
+        <div class="offcard" id="offcard" hidden>
+          <i class="em" data-icon="power"></i>
+          <b>Vanish Cam is off</b>
+          <p>The camera goes out untouched. Turn it on with the switch at the top.</p>
+          <button id="turnOn" class="primary">Turn on</button>
+        </div>
+        <div class="nocam" id="nocam" hidden>
+          <i class="em" data-icon="cameraOff"></i>
+          <p id="nocamText">The camera could not be opened. Allow it for this page and reload.</p>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="toggle" class="primary big"><i class="em" id="toggleIcon" data-icon="ghost"></i><span id="toggleText">Vanish</span></button>
+        <button id="capture" class="secondary"><i class="em" data-icon="image"></i><span id="captureText">Remember background</span></button>
+        <button id="tracking" class="secondary" title="Show the hand tracking on the picture"><i class="em" data-icon="palm"></i><span>Tracking</span></button>
+        <button id="showMask" class="secondary" title="White = what gets replaced by the background"><i class="em" data-icon="contrast"></i><span>Show the mask</span></button>
+      </div>
+      <p id="info" class="muted center" role="status"></p>
+      <p class="muted center">Alt+Shift+H works here too.</p>
+    </section>
+
+    <section class="right">
+      <div class="card">
+        <h2><i class="em" data-icon="palm"></i>Gesture</h2>
+        <div class="tiles" id="modes"></div>
+        <div class="subopts" id="modeOpts" hidden></div>
+        <div id="customBox">
+          <div id="gestureList" class="glist"></div>
+          <button id="record" class="secondary wide"><i class="em" data-icon="rec"></i> Record a new gesture</button>
+          <p class="muted">Press, step back so your hand is clearly in the picture, and hold the pose for a second after the countdown, or do the motion (a swipe, a goodbye wave, a circle): the whole path of the hand is remembered, relative to your face. Use one or two hands.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2><i class="em" data-icon="sparkles"></i>Effect</h2>
+        <div class="tiles" id="effects"></div>
+        <p class="muted">Pick an effect; its settings are right below. Replay shows it on you.</p>
+        <div class="subopts" id="effectOpts"></div>
+      </div>
+
+      <div class="card">
+        <h2><i class="em" data-icon="volume"></i>Sounds</h2>
+        <div class="field">
+          <label for="vanishSound">Vanish sound</label>
+          <div class="row"><select id="vanishSound"></select><button class="play" data-for="vanishSound" aria-label="Play the vanish sound"><i data-icon="play"></i></button></div>
+        </div>
+        <div class="field">
+          <label for="appearSound">Appear sound</label>
+          <div class="row"><select id="appearSound"></select><button class="play" data-for="appearSound" aria-label="Play the appear sound"><i data-icon="play"></i></button></div>
+        </div>
+        <p class="muted">The built-in ones are synthesised. Your own files (mp3, wav, up to 3 MB each) show up in the lists too; the call hears them as well.</p>
+        <div id="soundList"></div>
+        <label class="secondary file">Add a sound file…<input type="file" id="addSound" accept="audio/*" multiple hidden></label>
+        <p class="muted" id="soundErr"></p>
+        <div class="subopts" id="soundOpts"></div>
+      </div>
+
+      <details class="card" id="fine">
+        <summary><h2><i class="em" data-icon="sliders"></i>General</h2></summary>
+        <div class="field">
+          <label for="device">Compute</label>
+          <select id="device"></select>
+          <p class="muted">If the GPU doesn't work, the extension falls back to the CPU.</p>
+        </div>
+        <div class="field">
+          <label for="segModel">Cutout model</label>
+          <select id="segModel"></select>
+          <p class="muted">On the CPU the quality model is very slow; pick the fast one.</p>
+        </div>
+        <p id="perf" class="muted"></p>
+        <div id="advGroups"></div>
+        <label class="switch"><input type="checkbox" id="panel"><span>Panel on the call page</span></label>
+        <label class="switch"><input type="checkbox" id="gdebug"><span>Gesture debug on the call page</span></label>
+        <button id="reset" class="secondary wide">Reset everything to defaults</button>
+      </details>
+    </section>
+  </main>
+
+  <script src="settings.js"></script>
+  <script src="lib/wasm/vision_wasm_internal.js"></script>
+  <script src="gestures.js"></script>
+  <script src="effects.js"></script>
+  <script src="synth.js"></script>
+  <script src="icons.js"></script>
+  <script src="ml.js"></script>
+  <script src="vanish.js"></script>
+  <script src="i18n.js"></script>
+  <script src="sounds.js"></script>
+  <script src="studio.js"></script>
+</body>
+</html>

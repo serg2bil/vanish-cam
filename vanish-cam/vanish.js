@@ -14,61 +14,101 @@ const warn = console.warn;
 console.warn = (...a) => { if (!/gl_context|OpenGL error checking/.test(String(a[0]))) warn(...a); };
 
 // Runtime state of this page (settings are in CFG).
-const S = { hidden: false, gestureInfo: '', captureAt: 0, status: 'loading models…', fps: 0, snapInfo: '', cams: 0 };
-let preSnapAt = -1e9, preSnap2At = -1e9, ui, lastMode = null;
+// onFrame / noPanel are set by the studio page, which runs this same pipeline on its own camera.
+const S = { hidden: false, gestureInfo: '', captureAt: 0, status: 'loading models…', fps: 0, snapInfo: '', cams: 0, onFrame: null, noPanel: false };
+let preSnapAt = -1e9, preSnap2At = -1e9, ui, lastMode = null, custom = [], customKey = '', effectSeed = 1;
 
 // ---------- models: ml.js, in a worker so the video never waits for them ----------
-// Changing CFG.device ("Compute") or CFG.segModel reloads them there; the old set keeps
-// serving until the new one is ready. If a page forbids workers, the same engine runs inline.
-let engine = null, mlReady = false, mlKey = null, jobBusy = false, jobAt = 0;
+// Changing CFG.device ("Compute") or CFG.segModel loads a new set in a NEW worker while the old
+// one keeps serving; when the new one is ready the old worker is closed. (Loading a new set into
+// the same worker broke it: the GPU cutout model next to the old WebGPU one aborted the whole
+// worker.) A worker that stops answering is restarted. If a page forbids workers, the same engine
+// runs inline (then a new set loads in place).
+let engine = null, nextEngine = null, mlReady = false, mlKey = null, jobBusy = false, jobAt = 0, lostJobs = 0;
 const camHandlers = new Map(); // camera id -> applies a finished job to that camera's pipeline
 
-function mlMessage(m) {
+function mlMessage(m, from) {
+  if (from === nextEngine) { // the set being loaded in a new worker
+    if (m.type === 'status' && m.ready) { // ready: it takes over, the old worker goes
+      const old = engine;
+      engine = nextEngine; nextEngine = null;
+      old?.kill();
+      jobBusy = false; lostJobs = 0;
+    } else if (m.type === 'error') {
+      S.status = 'load error: ' + m.message;
+      nextEngine.kill(); nextEngine = null; mlKey = null; // try again on the next settings change
+      return ui?.sync();
+    } else if (m.type !== 'status') return;
+  } else if (from !== engine) return; // a worker that was already replaced
   if (m.type === 'status') {
     S.status = m.status + (engine?.inline ? ' · main thread' : '');
-    if (m.ready) { mlReady = true; Object.assign(PERF, { n: 0, seg: 0, hands: 0, face: 0, since: performance.now() }); }
+    if (m.ready) { mlReady = true; from.ready = true; Object.assign(PERF, { n: 0, seg: 0, hands: 0, face: 0, since: performance.now() }); }
   } else if (m.type === 'error') {
     S.status = 'load error: ' + m.message;
   } else if (m.type === 'result') {
-    jobBusy = false;
+    jobBusy = false; lostJobs = 0;
     if (m.error) console.error('[Vanish Cam] models:', m.error);
     else if (!m.skipped) camHandlers.get(m.cam)?.(m);
   }
   ui?.sync();
 }
 
-function startEngine() {
-  const runInline = why => {
-    log('running models on the main thread:', why);
-    const handle = makeMlEngine(m => mlMessage(m));
-    engine = { inline: true, post: m => handle(m) };
-    mlKey = null; mlReady = false; jobBusy = false;
-    ensureModels();
-  };
+let workersBlocked = false;
+function inlineEngine(why) {
+  log('running models on the main thread:', why);
+  workersBlocked = true;
+  const eng = { inline: true, kill() {} };
+  const handle = makeMlEngine(m => mlMessage(m, eng));
+  eng.post = m => handle(m);
+  return eng;
+}
+// A new model worker (or the inline engine if workers are not allowed here).
+function spawnEngine() {
+  if (workersBlocked) return inlineEngine('workers are blocked on this page');
   try {
     // Workers must be same-origin, so a tiny blob bootstraps ml.js from the extension.
     // Pages with Trusted Types (Meet) need the script URL to go through a policy.
+    // (On the extension's own pages, like the studio, the worker URL can be used directly.)
     const u = JSON.stringify(url('ml.js'));
     const code = `const tt = self.trustedTypes?.createPolicy('vanish-cam', { createScriptURL: s => s });\nimportScripts(tt ? tt.createScriptURL(${u}) : ${u});`;
-    const w = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+    const w = location.protocol === 'chrome-extension:' ? new Worker(url('ml.js')) : new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+    const eng = { inline: false, post: (m, transfer) => w.postMessage(m, transfer), kill: () => w.terminate() };
     let alive = false;
-    w.onmessage = e => { alive = true; mlMessage(e.data); };
+    w.onmessage = e => { alive = true; mlMessage(e.data, eng); };
     w.onerror = e => {
       if (alive) return console.error('[Vanish Cam] model worker:', e.message);
-      e.preventDefault();
-      runInline(e.message); // the page didn't let the worker start
+      e.preventDefault(); // the page didn't let the worker start: run the models here instead
+      const inl = inlineEngine(e.message);
+      if (engine === eng) engine = inl; else if (nextEngine === eng) nextEngine = inl;
+      mlKey = null; mlReady = false; jobBusy = false;
+      ensureModels();
     };
-    engine = { inline: false, post: (m, transfer) => w.postMessage(m, transfer) };
-  } catch (e) { runInline(e.message); }
+    return eng;
+  } catch (e) { return inlineEngine(e.message); }
 }
 
 function ensureModels() {
-  if (!S.cams) return;
-  if (!engine) startEngine();
+  if (!S.cams || !CFG.enabled) return;
   const key = `${CFG.device}|${CFG.segModel}`;
-  if (key === mlKey) return;
+  if (key === mlKey && engine) return;
   mlKey = key;
-  engine.post({ cmd: 'load', base: url(''), device: CFG.device, segModel: CFG.segModel });
+  const load = { cmd: 'load', base: url(''), device: CFG.device, segModel: CFG.segModel };
+  if (!engine || engine.inline) { // first load, or no workers: load in place
+    engine ??= spawnEngine();
+    return engine.post(load);
+  }
+  nextEngine?.kill(); // settings changed again before it was ready
+  nextEngine = spawnEngine();
+  nextEngine.post(load);
+}
+
+// The model worker stopped answering (a GPU driver hang, a crashed model): start a fresh one.
+function restartEngine(why) {
+  console.error('[Vanish Cam] models stopped answering, restarting them:', why);
+  engine?.kill(); nextEngine?.kill();
+  engine = nextEngine = null; mlKey = null; jobBusy = false; lostJobs = 0; // mlReady stays: the last mask keeps you hidden meanwhile
+  S.status = 'restarting models…';
+  ensureModels();
 }
 
 // Speed: average ms per model run and model runs per second, over the last second.
@@ -91,9 +131,18 @@ function applySettings(saved) {
     memeHold.reset();
     S.gestureInfo = '';
   }
+  const gk = JSON.stringify(CFG.gestures);
+  if (gk !== customKey) { // your own gestures changed: one hold tracker per gesture
+    customKey = gk;
+    custom = CFG.gestures.map(g => ({ g, tracker: g.move?.path // (a motion from an older version has no path: it counts as a pose)
+      ? makeMoveTracker(g, { cooldownMs: 1500 }) // the pose travelling the recorded way
+      : makeHoldTracker((lm, all) => gestureScore(g, g.hands === 2 ? all : [lm]) >= 0.5, () => ({ holdMs: g.hold, cooldownMs: 1500 })) }));
+  }
+  if (!CFG.enabled) { S.hidden = false; S.captureAt = 0; } // switched off: you are back in the picture at once
+  if (S.cams) { soundFor(CFG.vanishSound).catch(() => {}); soundFor(CFG.appearSound).catch(() => {}); } // ready before the gesture
   if (mix?.call) mix.call.gain.value = CFG.callVolume;
   if (mix) mix.local.gain.value = CFG.localVolume;
-  if (S.cams && (CFG.panel || CFG.gdebug)) makePanel();
+  if (S.cams && CFG.enabled && (CFG.panel || CFG.gdebug)) makePanel();
   ensureModels();
   ui?.sync();
 }
@@ -135,11 +184,12 @@ function setupMix(mic) {
 
 function loadSound(slot) {
   getMix();
-  return sounds[slot] ??= chrome.storage.local.get('sounds').then(r => {
+  const built = slot.startsWith('syn:') && SYNTH[slot.slice(4)];
+  return sounds[slot] ??= (built ? built(mix.ac.sampleRate) : chrome.storage.local.get('sounds').then(r => {
     const item = (r.sounds ?? []).find(x => x.id === slot);
     if (!item) return null;
     return mix.ac.decodeAudioData(Uint8Array.from(atob(item.b64), c => c.charCodeAt(0)).buffer);
-  }).then(fwd => {
+  })).then(fwd => {
     if (!fwd) return null;
     const { hit, cut } = soundHit(fwd.getChannelData(0), fwd.sampleRate);
     const n = Math.max(1, Math.round(cut * fwd.sampleRate)); // drop the near-silent tail before reversing
@@ -149,40 +199,49 @@ function loadSound(slot) {
   });
 }
 
-// 'sound-id' | 'sound-id:rev' | 'off' -> { buffer, hit } or null
+// 'sound-id' | 'sound-id:rev' | 'syn:id' | 'syn:id:rev' | 'off' -> { buffer, hit } or null
 async function soundFor(choice) {
-  const [name, rev] = (choice ?? 'off').split(':');
+  const parts = (choice ?? 'off').split(':'), rev = parts.at(-1) === 'rev' && parts.pop();
+  const name = parts.join(':');
   if (name === 'off') return null;
   const s = await loadSound(name);
   if (!s) return null; // nothing loaded in this slot: silent
   return rev ? { buffer: s.rev, hit: s.revHit } : { buffer: s.fwd, hit: s.hit };
 }
 
-function play(buffer) {
+function play(buffer, skip = 0) {
   mix.ac.resume();
   const src = new AudioBufferSourceNode(mix.ac, { buffer });
   src.connect(mix.local);
   if (mix.call) src.connect(mix.call);
-  src.start();
+  src.start(0, skip);
 }
 
-// Every way of vanishing/appearing goes through here: sound first, then the switch, timed to the hit.
+// How long the chosen effect runs (the "dissolve duration" setting × the effect's own length).
+const fadeMs = () => effectOpts(CFG.effect, CFG).ms;
+const LEAD = 60; // ms between the gesture and the effect starting, at most (unless you set a later offset)
+
+// Every way of vanishing/appearing goes through here. The effect starts right away; the sound is
+// started part-way in, so its hit lands where it should (vanish: when the effect starts; appear:
+// when you are fully back) instead of making you wait through its build-up.
 async function trigger() {
-  if (pending) return;
+  if (pending || !CFG.enabled) return;
   pending = true;
   ui?.sync();
   const hiding = !S.hidden;
   try {
     const snd = await soundFor(hiding ? CFG.vanishSound : CFG.appearSound);
     if (snd) {
-      play(snd.buffer);
-      const at = snd.hit * 1000 + (hiding ? CFG.vanishOffset : CFG.appearOffset - CFG.fadeMs);
-      await new Promise(r => setTimeout(r, Math.max(0, at)));
+      const at = snd.hit * 1000 + (hiding ? CFG.vanishOffset : CFG.appearOffset - fadeMs()); // the switch, ms after the sound starts
+      const skip = Math.max(0, Math.min(at - LEAD, snd.hit * 1000));
+      play(snd.buffer, skip / 1000);
+      await new Promise(r => setTimeout(r, Math.max(0, at - skip)));
     }
   } catch (e) {
     console.error('[Vanish Cam] sound', e);
   }
   pending = false;
+  effectSeed = Math.random() * 1000; // each transition drifts a little differently
   toggle();
 }
 
@@ -191,13 +250,13 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (!S.cams) return;
   if (msg.cmd === 'toggle') trigger();
   if (msg.cmd === 'captureBg') S.captureAt = performance.now() + CFG.captureDelay;
-  reply({ hidden: S.hidden, pending, status: S.status, fps: S.fps, perf: PERF.out,
+  reply({ enabled: CFG.enabled, hidden: S.hidden, pending, status: S.status, fps: S.fps, perf: PERF.out,
     captureIn: S.captureAt ? Math.max(0, S.captureAt - performance.now()) : 0, info: S.snapInfo || S.gestureInfo });
 });
 
 addEventListener('keydown', e => {
   if (!e.altKey || !e.shiftKey) return;
-  if (e.code === 'KeyH') trigger();
+  if (e.code === 'KeyH') trigger(); // does nothing while the extension is off
   if (e.code === 'KeyD') S.debug = !S.debug; // show the raw mask (white = "you") for tuning
   if (e.code === 'KeyG') saveSetting('gdebug', !CFG.gdebug); // gesture debug on the page panel
 }, true);
@@ -236,15 +295,26 @@ let snap1Hits = 0, snap2Hits = 0;
 const snapGate = makeSnapGate();
 function watchHands(result, now, face) {
   const lms = result.landmarks;
+  if (CFG.mode === 'custom') { // your own gestures, each with its own tracker and its own job
+    let best = 0, label = '';
+    for (const { g, tracker } of custom) {
+      const fired = tracker.update(lms, now, g.move?.path ? face : lms);
+      const sc = lms.length ? gestureScore(g, lms) : 0;
+      if (sc > best) { best = sc; label = g.name; }
+      if (fired && (g.when === 'both' || (g.when === 'vanish') === !S.hidden)) trigger();
+    }
+    S.gestureInfo = best >= 0.5 ? `${label} ${Math.round(best * 100)}%` : '';
+    return;
+  }
   if (CFG.mode === 'meme') {
     if (memeHold.update(lms, now, face)) trigger();
-    S.gestureInfo = memeHold.holding ? '✌️…' : '';
+    S.gestureInfo = memeHold.holding ? 'V…' : '';
     return;
   }
   const seals = trackers[CFG.mode];
   if (seals) {
     const done = seals.update(lms, now);
-    S.gestureInfo = seals.step ? 'seals: ' + seals.labels.map((l, i) => i < seals.step ? '✔' : l).join(' ') : '';
+    S.gestureInfo = seals.step ? 'seals: ' + seals.labels.map((l, i) => i < seals.step ? '✓' : l).join(' · ') : '';
     if (done) trigger();
     return;
   }
@@ -300,7 +370,7 @@ function listenForSnap(mic) {
     let peak = 0;
     for (const x of buf) if (Math.abs(x) > peak) peak = Math.abs(x);
     const now = performance.now();
-    if ((CFG.mode === 'snap' || CFG.mode === 'snap2') && peak > snapLoudness() && peak > noise * 6 && now - lastSnap > 800) {
+    if (CFG.enabled && (CFG.mode === 'snap' || CFG.mode === 'snap2') && peak > snapLoudness() && peak > noise * 6 && now - lastSnap > 800) {
       const two = CFG.mode === 'snap2';
       const handOk = now - (two ? preSnap2At : preSnapAt) < CFG.snapWindow;
       snapSays(`sound ${peak.toFixed(2)}, ${handOk ? (two ? 'both hands ✓' : 'hand ✓') : (two ? 'need both hands' : 'no hand seen')}`);
@@ -348,10 +418,12 @@ document.addEventListener('vanish-start', e => {
   const [hideM, hctx] = canvas(MW, MH);   // alpha = how much to replace with background
   const [learnM, lctx] = canvas(MW, MH);  // alpha = safe to learn as background
   const [out, octx] = canvas(), [bg, bctx] = canvas(), [tmp, tctx] = canvas();
+  const [person, pctx] = canvas(), [scratch] = canvas(), [scratch2] = canvas(), [scratch3] = canvas(); // you, cut out, and spare canvases for the effect
+  let cx = 0, cy = 0;
   const [jobFrame, jctx] = canvas(), [learnTmp, ltctx] = canvas(); // the frame the current mask belongs to
   const levels = Array.from({ length: 6 }, () => canvas()); // pyramid for filling never-seen spots
   let w = 0, h = 0;
-  let haveMask = false, fade = 0, n = 0, total = 0, frames = 0, lastFps = performance.now(), lastAt = 0;
+  let haveMask = false, fade = 0, total = 0, frames = 0, lastFps = performance.now(), lastAt = 0;
 
   // Push-pull fill: shrink the learned background step by step, then paste each coarser level
   // under the finer one. Holes get the colours around them instead of black or streaks.
@@ -378,6 +450,8 @@ document.addEventListener('vanish-start', e => {
     if (CFG.mode !== 'off') watchHands(hands, m.now, m.face);
     handStats(hands, m.now);
     if (CFG.gdebug) ui?.showHands(hands);
+    S.onFrame?.(hands, m.face, m.now);
+    if (m.face) { cx = (m.face.x + m.face.w / 2) * w; cy = (m.face.y + m.face.h * 1.8) * h; } // effects centre: your chest
     hctx.putImageData(new ImageData(m.hide, MW, MH), 0, 0);
     lctx.putImageData(new ImageData(m.learn, MW, MH), 0, 0);
     paintHands(hctx, hands, 1.3); // a bit wider than the hand: covers fingers moving between masks
@@ -401,27 +475,40 @@ document.addEventListener('vanish-start', e => {
 
   new MediaStreamTrackProcessor({ track: cam }).readable.pipeThrough(new TransformStream({
     async transform(frame, ctl) {
+      if (!CFG.enabled) { fade = 0; haveMask = false; return ctl.enqueue(frame); } // switched off: the camera goes out untouched
       if (!mlReady) return ctl.enqueue(frame); // pass through until models are ready
+      try { compose(frame, ctl); } catch (e) { // never let a drawing error end the camera track
+        console.error('[Vanish Cam] frame', e);
+        ctl.enqueue(frame);
+      }
+    },
+  })).pipeTo(gen.writable).catch(e => console.error('[Vanish Cam] pipeline stopped', e)).finally(() => { S.cams--; camHandlers.delete(camId); });
+
+  function compose(frame, ctl) {
       const now = performance.now();
       if (++frames, now - lastFps > 1000) { S.fps = Math.round(frames * 1000 / (now - lastFps)); frames = 0; lastFps = now; }
 
       if (frame.displayWidth !== w || frame.displayHeight !== h) {
         w = frame.displayWidth; h = frame.displayHeight;
-        for (const c of [out, bg, tmp, jobFrame, learnTmp]) { c.width = w; c.height = h; }
+        for (const c of [out, bg, tmp, jobFrame, learnTmp, person]) { c.width = w; c.height = h; }
+        cx = w / 2; cy = h / 2;
         levels.forEach(([c], k) => { c.width = Math.max(1, w >> (k + 3)); c.height = Math.max(1, h >> (k + 3)); });
       }
 
       // The models run in the worker on the newest frame; every camera frame is composited with
       // the latest finished mask, so video keeps full fps and the mask lags by a frame or two.
-      if (jobBusy && now - jobAt > 3000) jobBusy = false; // a lost job (worker hiccup) must not stall the mask
+      if (jobBusy && now - jobAt > 3000) { // a lost job (worker hiccup) must not stall the mask
+        jobBusy = false;
+        if (engine?.ready && ++lostJobs >= 2) restartEngine('no answer for 6 s'); // and a dead worker is replaced
+      }
       if (!jobBusy) {
         jobBusy = true; jobAt = now;
         jctx.drawImage(frame, 0, 0, w, h); // learning must use THIS frame, not a newer one the mask doesn't match
         const copy = frame.clone();
-        engine.post({ cmd: 'job', cam: camId, now, frame: copy }, [copy]);
+        if (engine) engine.post({ cmd: 'job', cam: camId, now, frame: copy }, [copy]); else copy.close();
       }
       if (!haveMask) return ctl.enqueue(frame);
-      const step = Math.min(1, (now - lastAt) / CFG.fadeMs); // dissolve over fadeMs, whatever the fps
+      const step = Math.min(1, (now - lastAt) / fadeMs()); // the effect takes fadeMs(), whatever the fps
       lastAt = now;
       fade = S.hidden ? Math.min(1, fade + step) : Math.max(0, fade - step);
 
@@ -434,17 +521,26 @@ document.addEventListener('vanish-start', e => {
 
       octx.drawImage(frame, 0, 0, w, h);
       if (fade > 0.01) {
+        const blur = `blur(${Math.round(w / 200)}px)`; // feather the small mask: no staircase edges
+        if (fade < 0.99) { // mid-transition: keep a copy of you for the effect to play with
+          pctx.globalCompositeOperation = 'copy';
+          pctx.drawImage(frame, 0, 0, w, h);
+          pctx.globalCompositeOperation = 'destination-in';
+          pctx.filter = blur;
+          pctx.drawImage(hideM, 0, 0, w, h);
+          pctx.filter = 'none';
+        }
         tctx.globalCompositeOperation = 'copy';
         tctx.drawImage(filledBackground(), 0, 0, w, h);
         tctx.globalCompositeOperation = 'source-over';
         tctx.drawImage(bg, 0, 0);
         tctx.globalCompositeOperation = 'destination-in';
-        tctx.filter = `blur(${Math.round(w / 200)}px)`; // feather the small mask: no staircase edges
-        tctx.globalAlpha = fade; // fade is applied here so the mask can be stale but the dissolve stays smooth
+        tctx.filter = blur;
         tctx.drawImage(hideM, 0, 0, w, h);
-        tctx.globalAlpha = 1;
         tctx.filter = 'none';
-        octx.drawImage(tmp, 0, 0);
+        octx.drawImage(tmp, 0, 0); // you are gone; the effect draws you back at the current progress
+        if (fade < 0.99) (EFFECTS[CFG.effect] ?? EFFECTS.dissolve)(octx, person, fade, { w, h, cx, cy, t: now, seed: effectSeed, scratch, scratch2, scratch3, opt: effectOpts(CFG.effect, CFG) });
+        octx.globalAlpha = 1; octx.globalCompositeOperation = 'source-over'; octx.filter = 'none';
       }
       if (S.debug) { // white = what gets hidden (body mask + painted hands)
         octx.fillStyle = '#000';
@@ -453,8 +549,7 @@ document.addEventListener('vanish-start', e => {
       }
       ctl.enqueue(new VideoFrame(out, { timestamp: frame.timestamp }));
       frame.close();
-    },
-  })).pipeTo(gen.writable).catch(e => console.error('[Vanish Cam] pipeline stopped', e)).finally(() => { S.cams--; camHandlers.delete(camId); });
+  }
 });
 
 // ---------- on-page control panel ----------
@@ -473,7 +568,9 @@ label{display:flex;align-items:center;gap:6px}
 small{color:#9aa0a6;min-height:2.4em}
 .dbg canvas{width:100%;background:#000;border-radius:8px;display:block}
 .dbg pre{margin:4px 0 0;font:11px/1.4 ui-monospace,monospace;white-space:pre-wrap}
-.dbg[hidden]{display:none}`;
+.dbg[hidden]{display:none}
+.brand{display:flex;align-items:center;gap:6px}
+.ico{width:16px;height:16px;fill:none;stroke:#c9b8ff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}`;
 
 function el(tag, props = {}, ...kids) {
   const e = Object.assign(document.createElement(tag), props);
@@ -482,7 +579,7 @@ function el(tag, props = {}, ...kids) {
 }
 
 function makePanel() {
-  if (ui) return;
+  if (ui || S.noPanel) return;
   const host = el('div');
   host.style.cssText = 'position:fixed;z-index:2147483647;right:16px;bottom:16px';
   const root = host.attachShadow({ mode: 'closed' });
@@ -495,8 +592,11 @@ function makePanel() {
   const body = el('div', { className: 'body' }, mainBtn, bgBtn, dbg, status);
   const min = el('button', { className: 'min', textContent: '–', title: 'Minimize', onclick: () => { body.hidden = !body.hidden; } });
   const close = el('button', { className: 'min', textContent: '×', title: 'Hide the panel (bring it back from the extension popup)',
-    onclick: () => saveSettings({ panel: false, gdebug: false }) });
-  const head = el('header', {}, '👻 Vanish Cam', el('span', {}, min, close));
+    onclick: () => { // hide now; saving can fail after an extension update (context gone) and must not keep it open
+      CFG.panel = CFG.gdebug = false; host.hidden = true;
+      try { saveSettings({ panel: false, gdebug: false }); } catch {}
+    } });
+  const head = el('header', {}, el('span', { className: 'brand' }, icon('ghost'), 'Vanish Cam'), el('span', {}, min, close));
 
   head.onpointerdown = e => {
     if (e.target.tagName === 'BUTTON') return;
@@ -508,7 +608,7 @@ function makePanel() {
 
   root.append(el('style', { textContent: CSS }), el('div', { className: 'p' }, head, body));
   document.documentElement.append(host);
-  const POSE = { open: '✋ palm', victory: '✌️ victory', fist: '✊ fist' };
+  const POSE = { open: 'palm', victory: 'victory', fist: 'fist' };
   ui = {
     // Gesture debug: hands as the model sees them (mirrored like your self-view) + what each one counts as.
     showHands(result) {
@@ -544,13 +644,13 @@ function makePanel() {
         // I=index M=middle R=ring P=pinky; dot = finger folded
         const fingers = fingersOut(lm).map((o, i) => o ? 'IMRP'[i] : '·').join('');
         const { touch, lift } = snapMeasures(lm, result.worldLandmarks[k]);
-        lines.push(`hand ${k + 1}: ${snap ? '👌 snap pose' : POSE[pose] ?? '— no shape'}  fingers ${fingers}${pose === 'victory' ? (memeOk ? '  at chest ✓' : `  at chest ✗ (${result.face ? 'lower than the chin' : 'no face seen: lower than ' + MEME_CHEST_Y}, now ${lm[9].y.toFixed(2)})`) : ''}`,
+        lines.push(`hand ${k + 1}: ${snap ? 'snap pose' : POSE[pose] ?? '— no shape'}  fingers ${fingers}${pose === 'victory' ? (memeOk ? '  at chest ✓' : `  at chest ✗ (${result.face ? 'lower than the chin' : 'no face seen: lower than ' + MEME_CHEST_Y}, now ${lm[9].y.toFixed(2)})`) : ''}`,
           `   snap ${snap ? '✓' : '✗'}  touch ${touch.toFixed(2)} (< ${CFG.snapTouch}), middle raised ${lift.toFixed(2)} (> ${CFG.snapLift})${lm[0].y >= 0.85 ? ', hand low' : ''}`);
       });
       notes.textContent = lines.join('\n');
     },
     sync() {
-      host.hidden = !(CFG.panel || CFG.gdebug);
+      host.hidden = !CFG.enabled || !(CFG.panel || CFG.gdebug);
       dbg.hidden = !CFG.gdebug;
       mainBtn.textContent = pending ? '…' : S.hidden ? 'Appear' : 'Vanish';
       mainBtn.classList.toggle('on', S.hidden);

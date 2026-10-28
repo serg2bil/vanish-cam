@@ -189,12 +189,13 @@ self.makeMlEngine = function makeMlEngine(post) {
     }, [hide.buffer, learn.buffer]);
   }
 
+  let errs = 0, lastLoad = null;
   return async function handle(msg) {
     try {
-      if (msg.cmd === 'job') return await job(msg);
+      if (msg.cmd === 'job') { await job(msg); errs = 0; return; }
       if (msg.cmd !== 'load') return;
       // New device / cutout model: load a new set; the old one keeps serving jobs until it's ready.
-      base = msg.base;
+      base = msg.base; lastLoad = msg;
       MF ??= self.ModuleFactory;
       const k = `${msg.device}|${msg.segModel}`;
       key = k;
@@ -206,8 +207,15 @@ self.makeMlEngine = function makeMlEngine(post) {
       post({ type: 'status', status: m.status, ready: true });
       if (old) { old.retired = true; if (!old.busy) old.close(); } // else the job using it closes it
     } catch (e) {
-      if (msg.cmd === 'job') post({ type: 'result', cam: msg.cam, error: e.message });
-      else post({ type: 'error', message: e.message });
+      if (msg.cmd !== 'job') return post({ type: 'error', message: e.message });
+      post({ type: 'result', cam: msg.cam, error: e.message });
+      // A GPU set that keeps failing (seen after switching CPU -> GPU: the status says GPU, but
+      // every frame errors and the tracking is gone) is replaced by a CPU set, and says so.
+      if (++errs === 5 && lastLoad && lastLoad.device !== 'cpu') {
+        log('models keep failing, moving to the CPU:', e.message);
+        post({ type: 'status', status: 'GPU failed, moving to the CPU…' });
+        handle({ ...lastLoad, device: 'cpu' });
+      }
     }
   };
 };

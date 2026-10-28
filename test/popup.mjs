@@ -21,6 +21,7 @@ console.log('extension id', id);
 
 const page = await b.newPage();
 page.on('pageerror', e => console.log('page error', e.message));
+page.on('console', m => { if (m.type() === 'error' && !/wasm|ArrayBuffer/.test(m.text())) console.log('console error', m.text()); });
 await page.goto('http://localhost:8767/');
 await page.evaluate(async () => { v.srcObject = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true }); });
 console.log('camera on');
@@ -30,6 +31,8 @@ const pop = await b.newPage();
 pop.on('pageerror', e => console.log('popup error', e.message));
 await pop.setViewport({ width: 340, height: 600, deviceScaleFactor: 2 });
 await pop.goto(`chrome-extension://${id}/popup.html`);
+await pop.evaluate(() => new Promise(r => chrome.storage.local.set({ settings: { lang: 'en' } }, r))); // the asserts read English
+await pop.reload();
 console.log('popup open');
 // The popup talks to the active tab; as a tab itself it would talk to itself, so point it at the page.
 // (Without the "tabs" permission tab URLs are hidden, so ask every tab and keep the one that answers.)
@@ -61,9 +64,16 @@ const saved = await pop.evaluate(() => new Promise(r => chrome.storage.local.get
 assert.equal(saved, 'snap');
 await pop.select('#mode', 'meme');
 
-await pop.click('#gear');
-await new Promise(r => setTimeout(r, 300));
-await pop.screenshot({ path: out('popup-advanced.png'), fullPage: true });
+// The effect select is there and saves too.
+await pop.select('#effect', 'glitch');
+assert.equal(await pop.evaluate(() => new Promise(r => chrome.storage.local.get('settings', x => r(x.settings.effect)))), 'glitch');
+await pop.select('#effect', 'dust');
+// The page is still hidden (the popup's poll keeps the state): appear again, through the glitch effect.
+await pop.click('#toggle');
+await new Promise(r => setTimeout(r, 2500));
+assert.equal(await pop.$eval('#where', e => e.textContent), 'Camera is running');
+const pageErrors = await page.evaluate(() => window.__errs ?? []);
+assert.equal(pageErrors.length, 0, 'page errors: ' + pageErrors.join(' | '));
 console.log('popup ok');
 await b.close();
 srv.close();
